@@ -35,6 +35,12 @@ services:
   worker:
     build: .
     command: ["python", "-m", "rag_app.worker"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 4s
+      start_period: 5s
+      retries: 3
     env_file:
       - .env
     environment:

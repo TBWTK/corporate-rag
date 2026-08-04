@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://rag:rag@db:5432/rag"
     data_dir: Path = Path("/data/uploads")
+    demo_documents_dir: Path = Path("examples/acme-corp")
     max_upload_mb: int = Field(default=25, ge=1, le=100)
 
     llm_provider: str = "gigachat"

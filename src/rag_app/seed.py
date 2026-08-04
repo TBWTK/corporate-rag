@@ -11,6 +11,13 @@ from rag_app.db.session import create_database_engine, create_session_factory, i
 from rag_app.services.ingestion import DuplicateDocumentError, UploadService
 
 
+def collect_demo_documents(directory: Path) -> list[Path]:
+    resolved = directory if directory.is_absolute() else Path.cwd() / directory
+    if not resolved.is_dir():
+        raise FileNotFoundError(f"Каталог демо-документов не найден: {resolved}")
+    return sorted(path for path in resolved.iterdir() if path.is_file())
+
+
 def main() -> None:
     settings = get_settings()
     engine = create_database_engine(settings)
@@ -28,9 +35,8 @@ def main() -> None:
             session.refresh(space)
 
     upload = UploadService(settings, factory)
-    examples = Path(__file__).resolve().parents[2] / "examples" / "acme-corp"
     added = 0
-    for path in sorted(examples.iterdir()):
+    for path in collect_demo_documents(settings.demo_documents_dir):
         try:
             upload.queue(
                 space_id=space.id,

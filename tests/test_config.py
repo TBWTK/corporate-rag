@@ -15,7 +15,12 @@ def test_fake_provider_can_start_without_credentials() -> None:
 
 
 def test_gigachat_provider_requires_authorization_key() -> None:
-    settings = Settings(_env_file=None, llm_provider="gigachat", gigachat_api_key=None)
+    settings = Settings(
+        _env_file=None,
+        llm_provider="gigachat",
+        gigachat_api_key=None,
+        llm_api_key=None,
+    )
 
     with pytest.raises(ValueError, match="GIGACHAT_API_KEY"):
         create_provider(settings)
