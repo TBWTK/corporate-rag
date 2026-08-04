@@ -1,0 +1,43 @@
+---
+title: Данные
+type: data
+status: active
+updated: 2026-08-04
+---
+
+# Данные
+
+## Сущности и владельцы
+
+| Сущность | Назначение | Владелец | Идентификатор |
+| --- | --- | --- | --- |
+| Knowledge space | граница связанного контекста | владелец знаний | UUID |
+| Document | версия загруженного файла и статус | загрузивший пользователь | UUID + SHA-256 |
+| Chunk | фрагмент, location и vector(1024) | система ingestion | UUID + chunk index |
+| Conversation | история вопросов в одном space | пользователь | UUID |
+| Message | текст ответа и снимок источников | пользователь/система | UUID |
+
+## Lifecycle и версии
+
+Файл проверяется, получает SHA-256 и сохраняется в volume. Одинаковый hash нельзя повторно загрузить в одно пространство, но можно — в другое. Worker переводит `queued → processing → ready|error`; зависший `processing` повторно доступен через 15 минут. Удаление документа каскадно удаляет chunks и файл. История диалогов хранится до удаления пространства или БД.
+
+## Provenance и чувствительность
+
+Для ответа сохраняются `document_id`, filename, location, excerpt и fusion-score на момент генерации. Это позволяет проверить происхождение, даже если retrieval позднее изменится. Корпоративные файлы и сообщения считаются конфиденциальными; volume и PostgreSQL нельзя публиковать или копировать без политики владельца. GigaChat является внешней границей обработки данных.
+
+## Data flow
+
+```mermaid
+flowchart LR
+  File["Корпоративный файл"] --> Validate["allowlist · size · SHA-256"]
+  Validate --> Raw[("Encrypted host / Docker volume")]
+  Raw --> Extract["Extractor by format"]
+  Extract --> Chunk["Text chunks + location"]
+  Chunk --> Embed["GigaChat Embeddings-2"]
+  Embed --> Index[("pgvector + FTS")]
+  Index --> Answer["Answer + source snapshot"]
+```
+
+## Восстановление
+
+Метаданные восстанавливаются из backup PostgreSQL, файлы — из backup volume. Векторы производны: при их потере документы можно переиндексировать из raw-файлов. Смена embedding-модели требует полного reindex, потому что сравнивать векторы разных моделей нельзя.

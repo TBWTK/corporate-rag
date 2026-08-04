@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Корпоративный поиск и ответы по связанным документам" />
+    <title>Контекст — корпоративные знания</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">К</div>
+          <div>
+            <strong>Контекст</strong>
+            <span>Корпоративные знания</span>
+          </div>
+        </div>
+
+        <div class="sidebar-heading">
+          <span>Пространства</span>
+          <button class="icon-button" id="new-space-button" title="Новое пространство" aria-label="Новое пространство">+</button>
+        </div>
+        <nav class="space-list" id="space-list" aria-label="Пространства знаний"></nav>
+
+        <div class="sidebar-footer">
+          <span class="health-dot" id="health-dot"></span>
+          <span id="health-label">Проверяем сервис…</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <button class="mobile-menu" id="mobile-menu" aria-label="Открыть меню">☰</button>
+          <div>
+            <p class="eyebrow">Пространство знаний</p>
+            <h1 id="space-title">Выберите пространство</h1>
+          </div>
+          <button class="secondary-button" id="upload-button" disabled>
+            <span aria-hidden="true">↑</span> Загрузить документы
+          </button>
+        </header>
+
+        <section class="content-grid">
+          <section class="documents-panel" aria-labelledby="documents-title">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Контекст</p>
+                <h2 id="documents-title">Документы</h2>
+              </div>
+              <span class="count-badge" id="document-count">0</span>
+            </div>
+
+            <label class="drop-zone" id="drop-zone" tabindex="0">
+              <input id="file-input" type="file" multiple hidden />
+              <span class="drop-icon" aria-hidden="true">＋</span>
+              <strong>Перетащите файлы сюда</strong>
+              <span id="format-hint">PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, HTML</span>
+            </label>
+
+            <div class="document-list" id="document-list">
+              <div class="empty-compact">Документы появятся здесь после загрузки</div>
+            </div>
+          </section>
+
+          <section class="chat-panel" aria-labelledby="chat-title">
+            <div class="chat-heading">
+              <div>
+                <p class="eyebrow">Диалог с источниками</p>
+                <h2 id="chat-title">Спросите документы</h2>
+              </div>
+              <button class="text-button" id="new-chat-button">Новый диалог</button>
+            </div>
+
+            <div class="messages" id="messages" aria-live="polite">
+              <div class="welcome-card" id="welcome-card">
+                <div class="sparkle" aria-hidden="true">✦</div>
+                <h3>Ответы, которые можно проверить</h3>
+                <p>Объедините связанные документы в одном пространстве. Контекст найдёт нужные фрагменты и покажет источники ответа.</p>
+                <div class="suggestions" id="suggestions">
+                  <button data-question="Кратко опиши основные правила в этих документах">Основные правила</button>
+                  <button data-question="Какие сроки и лимиты упоминаются в документах?">Сроки и лимиты</button>
+                  <button data-question="Есть ли противоречия между документами?">Найти противоречия</button>
+                </div>
+              </div>
+            </div>
+
+            <form class="composer" id="chat-form">
+              <textarea id="question-input" rows="1" maxlength="4000" placeholder="Задайте вопрос по документам…" disabled></textarea>
+              <button type="submit" id="send-button" aria-label="Отправить" disabled>↑</button>
+              <div class="composer-meta">
+                <span id="composer-hint">Сначала загрузите документ</span>
+                <span>Enter — отправить · Shift+Enter — строка</span>
+              </div>
+            </form>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="space-dialog">
+      <form method="dialog" id="space-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Новый контекст</p>
+            <h2>Создать пространство</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Закрыть">×</button>
+        </div>
+        <label>Название<input id="space-name" maxlength="120" placeholder="Например, HR и кадровые политики" required /></label>
+        <label>Описание<textarea id="space-description" maxlength="500" rows="3" placeholder="Какие документы будут связаны в этом контексте"></textarea></label>
+        <div class="dialog-actions">
+          <button class="secondary-button" value="cancel">Отмена</button>
+          <button class="primary-button" id="create-space-submit" value="default">Создать</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
