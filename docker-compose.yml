@@ -21,7 +21,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://rag:rag-local-only@db:5432/rag
       DATA_DIR: /data/uploads
-      LLM_PROVIDER: ${LLM_PROVIDER:-gigachat}
+      LLM_PROVIDER: ${RAG_LLM_PROVIDER:-gigachat}
       GIGACHAT_CA_BUNDLE_FILE: /app/certs/russian_trusted_root_ca_pem.crt
     ports:
       - "8000:8000"
@@ -46,7 +46,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://rag:rag-local-only@db:5432/rag
       DATA_DIR: /data/uploads
-      LLM_PROVIDER: ${LLM_PROVIDER:-gigachat}
+      LLM_PROVIDER: ${RAG_LLM_PROVIDER:-gigachat}
       GIGACHAT_CA_BUNDLE_FILE: /app/certs/russian_trusted_root_ca_pem.crt
     volumes:
       - rag_uploads:/data/uploads

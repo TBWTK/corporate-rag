@@ -9,7 +9,7 @@
 - гибридный поиск: pgvector + русскоязычный full-text search;
 - диалоги с нумерованными источниками и историей;
 - дедупликация по SHA-256 внутри пространства;
-- полностью офлайн-режим `LLM_PROVIDER=fake` для тестов.
+- полностью офлайн-режим `RAG_LLM_PROVIDER=fake docker compose up -d` для проверки UI;
 
 ```mermaid
 flowchart LR

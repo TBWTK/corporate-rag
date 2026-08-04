@@ -26,12 +26,13 @@ updated: 2026-08-04
 
 ## Current verified state
 
-- Git: ветка `main`, продуктовый commit `cab8664 feat: build corporate document RAG`.
+- Git: ветка `main`; продукт и Docker-приёмка зафиксированы Conventional Commits.
 - Красная TDD-база: четыре import failure до реализации домена.
 - Зелёная TDD-база: `10 passed` для chunking, text extractors, RRF и prompting 04.08.2026.
 - Docker build выполнен; `db`, `api`, `worker` имеют статус `healthy`.
 - `make demo`: 4 документа добавлены, повторный запуск добавил 0; все документы `ready`.
 - Docker HTTP e2e: health → spaces → documents → chat; источники включают политику и таблицу лимитов.
+- Docker live e2e: 4 документа переиндексированы `Embeddings-2`, ответ получен от `GigaChat-2-Pro:2.0.30.01` с цитатами `[1][2]`.
 - `37 passed, 2 skipped`, branch coverage 83,98%; Ruff и strict mypy без ошибок внутри образа.
 - PostgreSQL 17 + pgvector 0.8 e2e: upload 4 файлов → ready → hybrid chat, `1 passed`.
 - Live GigaChat: официальный CA, OAuth, Embeddings-2/1024 и GigaChat-2-Pro, `1 passed`.
@@ -50,6 +51,7 @@ updated: 2026-08-04
 - PostgreSQL/pgvector и гибридный RRF вместо in-memory vector store.
 - `Embeddings-2`/1024 как фиксированная индексная схема; `GigaChat-2-Pro` для ответа.
 - PostgreSQL advisory lock сериализует GigaChat между API и worker.
+- Compose использует `RAG_LLM_PROVIDER`, чтобы legacy-переменная `LLM_PROVIDER` в существующем `.env` не отключала GigaChat.
 
 ## Next exact step
 
