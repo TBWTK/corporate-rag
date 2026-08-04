@@ -178,7 +178,7 @@ function clearMessages() {
   el("welcome-card").style.display = "block";
 }
 
-function appendMessage(role, text, sources = [], loading = false) {
+function appendMessage(role, text, sources = [], loading = false, options = []) {
   el("welcome-card").style.display = "none";
   const wrapper = document.createElement("article");
   wrapper.className = `message ${role}`;
@@ -205,6 +205,19 @@ function appendMessage(role, text, sources = [], loading = false) {
     });
     wrapper.append(sourceList);
   }
+  if (options.length) {
+    const optionList = document.createElement("div");
+    optionList.className = "clarification-options";
+    options.forEach((option) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "clarification-option";
+      button.textContent = option;
+      button.addEventListener("click", () => ask(option));
+      optionList.append(button);
+    });
+    wrapper.append(optionList);
+  }
   el("messages").append(wrapper);
   el("messages").scrollTop = el("messages").scrollHeight;
   return wrapper;
@@ -228,7 +241,13 @@ async function ask(question) {
     });
     state.conversationId = result.conversation_id;
     loading.remove();
-    appendMessage("assistant", result.answer, result.sources);
+    appendMessage(
+      "assistant",
+      result.answer,
+      result.sources,
+      false,
+      result.clarification_options || [],
+    );
   } catch (error) {
     loading.remove();
     appendMessage("assistant", `Не удалось получить ответ: ${error.message}`);

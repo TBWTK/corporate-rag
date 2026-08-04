@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 
@@ -146,6 +147,89 @@ def test_chat_persists_messages_and_sources(
         "assistant",
     ]
     assert client.get(f"/api/conversations/{uuid.uuid4()}/messages").status_code == 404
+
+
+def test_chat_clarification_and_follow_up_use_shared_conversation(
+    api_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = TestClient(api_app)
+    space = create_space(client, "Дополнительные соглашения")
+    document = client.post(
+        f"/api/spaces/{space['id']}/documents",
+        files=[("files", ("remote-sales.txt", b"Sales remote rule", "text/plain"))],
+    ).json()["documents"][0]
+
+    class ClarifyingProvider(FakeProvider):
+        def __init__(self) -> None:
+            super().__init__()
+            self.embedding_inputs: list[str] = []
+            self.generation_count = 0
+
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            self.embedding_inputs.extend(texts)
+            return super().embed(texts)
+
+        def generate(self, _messages: list[dict[str, str]]) -> Completion:
+            self.generation_count += 1
+            if self.generation_count == 1:
+                payload = {
+                    "response_type": "clarification",
+                    "question": "Для какого подразделения проверить удалённый режим?",
+                    "options": ["Отдел продаж", "Разработка"],
+                }
+            else:
+                payload = {
+                    "response_type": "answer",
+                    "answer": "Для отдела продаж разрешено три удалённых дня [1].",
+                }
+            return Completion(text=json.dumps(payload, ensure_ascii=False), model="scripted")
+
+    provider = ClarifyingProvider()
+    api_app.state.provider = provider
+    IngestionWorker(
+        api_app.state.settings,
+        api_app.state.session_factory,
+        provider,
+    ).process_next()
+
+    def fake_search(*_args: object, **_kwargs: object) -> list[RetrievedChunk]:
+        return [
+            RetrievedChunk(
+                id=uuid.uuid4(),
+                document_id=uuid.UUID(document["id"]),
+                filename="remote-sales.txt",
+                location="раздел 2",
+                content="Для отдела продаж разрешено три удалённых дня.",
+                score=0.04,
+            )
+        ]
+
+    monkeypatch.setattr("rag_app.services.chat.hybrid_search", fake_search)
+    first = client.post(
+        "/api/chat",
+        json={"space_id": space["id"], "question": "Сколько дней можно работать удалённо?"},
+    )
+
+    assert first.status_code == 200
+    clarification = first.json()
+    assert clarification["response_type"] == "clarification"
+    assert clarification["clarification_options"] == ["Отдел продаж", "Разработка"]
+
+    second = client.post(
+        "/api/chat",
+        json={
+            "space_id": space["id"],
+            "question": "Отдел продаж",
+            "conversation_id": clarification["conversation_id"],
+        },
+    )
+
+    assert second.status_code == 200
+    assert second.json()["response_type"] == "answer"
+    assert "три" in second.json()["answer"]
+    retrieval_query = provider.embedding_inputs[-1]
+    assert "Сколько дней можно работать удалённо?" in retrieval_query
+    assert "Отдел продаж" in retrieval_query
 
 
 def test_chat_errors_are_mapped(api_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:

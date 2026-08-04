@@ -2,7 +2,7 @@
 title: Корпоративный RAG
 project: Корпоративный RAG
 type: project
-status: active
+status: complete
 updated: 2026-08-04
 ---
 

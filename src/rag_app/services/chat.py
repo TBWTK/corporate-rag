@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from rag_app.config import Settings
 from rag_app.db.models import Conversation, Document, DocumentStatus, KnowledgeSpace, Message
 from rag_app.generation.prompting import SourceContext, build_grounded_messages
+from rag_app.generation.response import ResponseType, parse_model_response
 from rag_app.providers.base import ModelProvider
 from rag_app.retrieval.search import hybrid_search
 
@@ -22,6 +23,8 @@ class ChatValidationError(ValueError):
 class ChatAnswer:
     conversation_id: uuid.UUID
     answer: str
+    response_type: ResponseType
+    clarification_options: list[str]
     sources: list[dict[str, Any]]
     model: str
     usage: dict[str, int]
@@ -68,12 +71,13 @@ class ChatService:
             )
             resolved_conversation_id = conversation.id
 
-        query_vector = self.provider.embed([clean_question])[0]
+        retrieval_query = _build_retrieval_query(clean_question, history)
+        query_vector = self.provider.embed([retrieval_query])[0]
         with self.session_factory() as session:
             retrieved = hybrid_search(
                 session,
                 space_id=space_id,
-                question=clean_question,
+                question=retrieval_query,
                 query_vector=query_vector,
                 candidates=self.settings.retrieval_candidates,
                 top_k=self.settings.retrieval_top_k,
@@ -91,6 +95,7 @@ class ChatService:
         completion = self.provider.generate(
             build_grounded_messages(clean_question, contexts, history=history)
         )
+        model_response = parse_model_response(completion.text)
         sources = [
             {
                 "number": index,
@@ -115,14 +120,16 @@ class ChatService:
                     Message(
                         conversation_id=resolved_conversation_id,
                         role="assistant",
-                        content=completion.text,
+                        content=model_response.text,
                         sources=sources,
                     ),
                 ]
             )
         return ChatAnswer(
             conversation_id=resolved_conversation_id,
-            answer=completion.text,
+            answer=model_response.text,
+            response_type=model_response.response_type,
+            clarification_options=model_response.options,
             sources=sources,
             model=completion.model,
             usage={
@@ -159,3 +166,12 @@ class ChatService:
             {"role": message.role, "content": message.content} for message in reversed(recent)
         ]
         return existing, history
+
+
+def _build_retrieval_query(question: str, history: list[dict[str, str]]) -> str:
+    relevant_history = [
+        message["content"].strip()
+        for message in history[-2:]
+        if message.get("content", "").strip()
+    ]
+    return "\n".join([*relevant_history, question]).strip()

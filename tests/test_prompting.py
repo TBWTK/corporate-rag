@@ -19,6 +19,8 @@ def test_prompt_requires_grounding_and_numbered_citations() -> None:
     assert "только" in prompt.lower()
     assert "недостаточно" in prompt.lower()
     assert "недовер" in prompt.lower()
+    assert '"response_type": "clarification"' in prompt
+    assert "не предполагай" in prompt.lower()
 
 
 def test_prompt_rejects_empty_question() -> None:

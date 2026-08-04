@@ -15,5 +15,6 @@ updated: 2026-08-04
 | Quality | Форматы, API, DB, безопасность и UI проверены | pytest, coverage, Ruff, mypy, browser QA | done |
 | Live | Реальный GigaChat подтверждён малым smoke-тестом | Один embedding и один grounded answer | done |
 | Handoff | Документация совпадает с кодом, Git чист | project-control audit и финальный commit | done |
+| Extended demo | 20 связанных файлов и уточняющий диалог работают end-to-end | corpus audit + two-turn Docker chat + docs | done |
 
 Допустимые статусы: `planned`, `active`, `blocked`, `done`.

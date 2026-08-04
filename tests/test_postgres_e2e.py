@@ -42,14 +42,14 @@ def test_postgres_upload_index_retrieve_and_chat(tmp_path: Path) -> None:
             files.append(("files", (path.name, path.read_bytes(), "application/octet-stream")))
         uploaded = client.post(f"/api/spaces/{space['id']}/documents", files=files)
         assert uploaded.status_code == 202
-        assert len(uploaded.json()["documents"]) == 4
+        assert len(uploaded.json()["documents"]) == 20
 
         worker = IngestionWorker(settings, factory, FakeProvider())
         while worker.process_next():
             pass
         documents = client.get(f"/api/spaces/{space['id']}/documents").json()
         assert {document["status"] for document in documents} == {"ready"}
-        assert sum(document["chunk_count"] for document in documents) >= 4
+        assert sum(document["chunk_count"] for document in documents) >= 20
 
         answer = client.post(
             "/api/chat",

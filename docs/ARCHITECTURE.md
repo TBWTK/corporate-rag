@@ -29,6 +29,7 @@ flowchart LR
 - Поиск никогда не пересекает границу `space_id`.
 - Ответ получает только извлечённые фрагменты; контекст считается недоверенным.
 - Каждый пользовательский факт должен иметь цитату `[N]`; при нехватке данных модель сообщает об этом.
+- Если выбор правила зависит от отсутствующего атрибута, модель задаёт один вопрос с 2–5 вариантами, а не предполагает ответ.
 - `.env`, ключи и access token не сохраняются в БД и не возвращаются API.
 - Индекс создаётся одной моделью `Embeddings-2` размерности 1024.
 - Вызовы GigaChat сериализуются между процессами для лимита одного потока.
@@ -88,14 +89,23 @@ sequenceDiagram
   participant A as API
   participant D as PostgreSQL/pgvector
   participant G as GigaChat 2 Pro
-  U->>A: question + space_id
-  A->>G: embedding(question)
+  U->>A: question + space_id + conversation_id?
+  A->>A: retrieval query = последние 2 сообщения + question
+  A->>G: embedding(retrieval query)
   A->>D: vector top-N + Russian FTS top-N
   A->>A: Reciprocal Rank Fusion → top-6
   A->>G: guarded prompt + numbered sources
-  G-->>A: grounded answer
-  A->>D: conversation messages + source metadata
-  A-->>U: answer + sources + token usage
+  G-->>A: JSON answer или clarification
+  alt достаточно данных
+    A->>D: question + answer + source metadata
+    A-->>U: answer + sources + token usage
+  else требуется атрибут
+    A->>D: question + clarification
+    A-->>U: clarification + 2–5 options
+    U->>A: selected option + same conversation_id
+    A->>A: contextual retrieval и повторная генерация
+    A-->>U: grounded answer + sources
+  end
 ```
 
 ## Latency и capacity

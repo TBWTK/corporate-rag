@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -50,6 +50,8 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     conversation_id: uuid.UUID
     answer: str
+    response_type: Literal["answer", "clarification"] = "answer"
+    clarification_options: list[str] = Field(default_factory=list)
     sources: list[dict[str, Any]]
     model: str
     usage: dict[str, int]

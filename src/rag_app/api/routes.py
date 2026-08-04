@@ -201,6 +201,8 @@ def chat(request: Request, payload: ChatRequest) -> ChatResponse:
     return ChatResponse(
         conversation_id=answer.conversation_id,
         answer=answer.answer,
+        response_type=answer.response_type,
+        clarification_options=answer.clarification_options,
         sources=answer.sources,
         model=answer.model,
         usage=answer.usage,

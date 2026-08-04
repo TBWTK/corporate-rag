@@ -140,6 +140,9 @@ button:disabled { opacity: .46; cursor: not-allowed; }
 .sources { max-width: 82%; display: grid; gap: 6px; margin-top: 8px; }
 .source-card { padding: 9px 11px; border-left: 2px solid var(--brand); border-radius: 0 9px 9px 0; background: #f0f5f2; color: #3c4b43; font-size: 10px; line-height: 1.45; }
 .source-card strong { display: block; color: var(--ink); margin-bottom: 2px; }
+.clarification-options { max-width: 82%; display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.clarification-option { padding: 8px 12px; border: 1px solid var(--brand); border-radius: 999px; background: #fff; color: var(--brand-dark); font-size: 11px; font-weight: 700; }
+.clarification-option:hover { background: var(--brand); color: #fff; transform: translateY(-1px); }
 
 .composer { position: relative; margin: 0 22px 20px; padding: 10px 52px 24px 13px; border: 1px solid #d8dbd4; border-radius: 15px; background: white; box-shadow: 0 12px 30px rgba(40,50,45,.07); }
 .composer:focus-within { border-color: #8db6a4; box-shadow: 0 0 0 3px rgba(23,122,88,.09); }
@@ -186,7 +189,7 @@ dialog input:focus, dialog textarea:focus { border-color: var(--brand); }
   .content-grid { gap: 10px; }
   .documents-panel, .chat-panel { border-radius: 15px; }
   .messages { padding: 20px 14px; }
-  .bubble, .sources { max-width: 94%; }
+  .bubble, .sources, .clarification-options { max-width: 94%; }
   .composer { margin: 0 12px 12px; }
   .composer-meta span:last-child { display: none; }
 }
