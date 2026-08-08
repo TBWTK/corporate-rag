@@ -3,6 +3,7 @@ from __future__ import annotations
 import ssl
 import time
 import uuid
+from mimetypes import guess_type
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,8 @@ class GigaChatProvider:
         api_base_url: str = "https://api.giga.chat/v1",
         timeout_seconds: float = 60.0,
         max_output_tokens: int = 1200,
+        vision_max_output_tokens: int = 2400,
+        client_id: str | None = None,
         verify_ssl: bool = True,
         ca_bundle_file: str | Path | None = None,
         client: httpx.Client | None = None,
@@ -36,6 +39,8 @@ class GigaChatProvider:
         self.generation_model = generation_model
         self.api_base_url = api_base_url.rstrip("/")
         self.max_output_tokens = max_output_tokens
+        self.vision_max_output_tokens = vision_max_output_tokens
+        self.client_id = client_id.strip() if client_id and client_id.strip() else None
         verify: bool | ssl.SSLContext = verify_ssl
         if verify_ssl and ca_bundle_file is not None:
             context = ssl.create_default_context()
@@ -81,16 +86,51 @@ class GigaChatProvider:
         self._token_expires_at = expires_at
         return token
 
+    def _headers(self, token: str) -> dict[str, str]:
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        if self.client_id:
+            headers["X-Client-ID"] = self.client_id
+        return headers
+
     def _post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         token = self._get_access_token()
         try:
             response = self._client.post(
                 f"{self.api_base_url}{path}",
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                headers=self._headers(token),
                 json=payload,
             )
         except httpx.HTTPError as error:
             raise ProviderError("Не удалось подключиться к GigaChat API") from error
+        return self._parse_response(response)
+
+    def _upload_file(self, path: Path) -> str:
+        token = self._get_access_token()
+        media_type = guess_type(path.name)[0] or "application/octet-stream"
+        try:
+            with path.open("rb") as stream:
+                response = self._client.post(
+                    f"{self.api_base_url}/files",
+                    headers=self._headers(token),
+                    data={"purpose": "general"},
+                    files={"file": (path.name, stream, media_type)},
+                )
+        except (OSError, httpx.HTTPError) as error:
+            raise ProviderError("Не удалось загрузить изображение в GigaChat") from error
+        payload = self._parse_response(response)
+        file_id = payload.get("id")
+        if not isinstance(file_id, str):
+            raise ProviderError("GigaChat не вернул идентификатор загруженного изображения")
+        try:
+            uuid.UUID(file_id)
+        except ValueError as error:
+            raise ProviderError("GigaChat вернул некорректный идентификатор файла") from error
+        return file_id
+
+    def _delete_file(self, file_id: str) -> None:
+        self._post(f"/files/{file_id}/delete", {})
+
+    def _parse_response(self, response: httpx.Response) -> dict[str, Any]:
         if response.status_code == 401:
             self._access_token = None
             raise ProviderError("Ошибка авторизации GigaChat: access token отклонён")
@@ -148,3 +188,44 @@ class GigaChatProvider:
             raise
         except (KeyError, IndexError, TypeError, ValueError) as error:
             raise ProviderError("GigaChat вернул некорректный ответ модели") from error
+
+    def analyze_image(self, image_path: Path, *, prompt: str) -> Completion:
+        file_id = self._upload_file(image_path)
+        try:
+            payload = self._post(
+                "/chat/completions",
+                {
+                    "model": self.generation_model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt,
+                            "attachments": [file_id],
+                        }
+                    ],
+                    "temperature": 0.0,
+                    "max_tokens": self.vision_max_output_tokens,
+                    "stream": False,
+                },
+            )
+            try:
+                choice = payload["choices"][0]
+                if choice.get("finish_reason") == "blacklist":
+                    raise ProviderSafetyError(
+                        "GigaChat отклонил страницу по политике безопасности"
+                    )
+                usage = payload.get("usage", {})
+                return Completion(
+                    text=str(choice["message"]["content"]).strip(),
+                    model=str(payload.get("model", self.generation_model)),
+                    prompt_tokens=int(usage.get("prompt_tokens", 0)),
+                    completion_tokens=int(usage.get("completion_tokens", 0)),
+                )
+            except ProviderSafetyError:
+                raise
+            except (KeyError, IndexError, TypeError, ValueError) as error:
+                raise ProviderError(
+                    "GigaChat вернул некорректный разбор изображения"
+                ) from error
+        finally:
+            self._delete_file(file_id)

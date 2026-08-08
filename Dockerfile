@@ -7,6 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        fonts-dejavu-core \
+        fonts-liberation \
+        libreoffice-writer \
+        poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system rag && adduser --system --ingroup rag --home /app rag \
     && mkdir -p /data/uploads && chown -R rag:rag /app /data
 

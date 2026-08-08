@@ -98,4 +98,6 @@ def test_create_app_serves_ui_and_openapi_without_starting_runtime(tmp_path: Pat
     index = client.get("/")
     assert index.status_code == 200
     assert "Контекст" in index.text
+    assert "/static/app.js?v=" in index.text
+    assert "/static/styles.css?v=" in index.text
     assert client.get("/api/openapi.json").status_code == 200

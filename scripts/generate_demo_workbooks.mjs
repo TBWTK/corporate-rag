@@ -35,6 +35,13 @@ async function renderSheet(workbook, sheetName, outputName) {
   );
 }
 
+async function saveWorkbook(workbook, outputName) {
+  const outputPath = path.join(corpus, outputName);
+  const output = await SpreadsheetFile.exportXlsx(workbook);
+  await output.save(outputPath);
+  await fs.rm(`${outputPath}.inspect.ndjson`, { force: true });
+}
+
 function applyTitle(sheet, range, title) {
   sheet.getRange(range).merge();
   const cell = sheet.getRange(range.split(":")[0]);
@@ -136,8 +143,7 @@ async function createEquipmentRegister() {
 
   await renderSheet(workbook, "Оборудование", "equipment-register.png");
   await renderSheet(workbook, "Сводка", "equipment-summary.png");
-  const output = await SpreadsheetFile.exportXlsx(workbook);
-  await output.save(path.join(corpus, "equipment_register.xlsx"));
+  await saveWorkbook(workbook, "equipment_register.xlsx");
 }
 
 async function createLeaveCalendar() {
@@ -197,10 +203,114 @@ async function createLeaveCalendar() {
 
   await renderSheet(workbook, "Отсутствия", "leave-absences.png");
   await renderSheet(workbook, "Правила", "leave-rules.png");
-  const output = await SpreadsheetFile.exportXlsx(workbook);
-  await output.save(path.join(corpus, "leave_calendar.xlsx"));
+  await saveWorkbook(workbook, "leave_calendar.xlsx");
+}
+
+async function createWorkScheduleAndAdaptation() {
+  const workbook = Workbook.create();
+  const schedules = workbook.worksheets.add("Графики");
+  const adaptation = workbook.worksheets.add("Адаптация");
+  const access = workbook.worksheets.add("Доступы");
+
+  schedules.showGridLines = false;
+  applyTitle(schedules, "A1:H1", "ACME CORP  /  Графики и форматы работы");
+  schedules.getRange("A2:H2").merge();
+  schedules.getRange("A2").values = [[
+    "Базовая матрица на 01.10.2025 • действующее дополнительное соглашение имеет приоритет в своей области",
+  ]];
+  schedules.getRange("A2:H2").format = {
+    fill: colors.pale,
+    font: { color: colors.muted, italic: true },
+    wrapText: true,
+  };
+  schedules.getRange("A3:H11").values = [
+    ["Подразделение / роль", "Формат", "Рабочий цикл", "Начало", "Окончание", "Обязательный офис", "Удалённый лимит", "Приоритетный источник"],
+    ["Продажи", "Гибрид", "Пн–Пт", "09:00", "18:00", "Вторник и четверг", "До 3 дней", "RW-SALES-2025"],
+    ["Инженерный отдел", "Гибрид", "Пн–Пт", "10:00", "19:00", "Среда", "До 4 дней", "RW-ENG-2025"],
+    ["Продукт", "Гибрид", "Пн–Пт", "10:00", "19:00", "Вторник и четверг", "До 2 дней", "Политика форматов работы"],
+    ["Финансы", "Преимущественно офис", "Пн–Пт", "09:00", "18:00", "Пн–Чт и последние 3 дня месяца", "Пятница", "RW-FIN-2025"],
+    ["Поддержка L1", "Сменный", "2/2", "08:00 или 20:00", "20:00 или 08:00", "Дневная смена", "Ночная смена", "SHIFT-SUPPORT-2025"],
+    ["Поддержка L2", "Сменный гибрид", "2/2", "08:00 или 20:00", "20:00 или 08:00", "По графику", "2 дневные смены в месяц + ночные", "SHIFT-SUPPORT-2025"],
+    ["Дизайн", "Гибрид", "Пн–Пт", "10:00", "19:00", "Вторник и четверг", "До 3 дней", "RW-DESIGN-2025"],
+    ["Региональный офис", "Гибрид", "Пн–Пт", "09:00", "18:00", "Не менее 1 дня", "До 4 дней", "RW-REG-2025"],
+  ];
+  applyHeader(schedules, "A3:H3");
+  applyBody(schedules, "A4:H11");
+  schedules.freezePanes.freezeRows(3);
+  schedules.getRange("A4:H11").format.rowHeight = 42;
+  [24, 20, 16, 17, 17, 30, 28, 28].forEach((width, index) => {
+    schedules.getRangeByIndexes(0, index, 11, 1).format.columnWidth = width;
+  });
+
+  adaptation.showGridLines = false;
+  applyTitle(adaptation, "A1:G1", "ACME CORP  /  План адаптации 30–60–90");
+  adaptation.getRange("A2").values = [["Дата выхода"]];
+  adaptation.getRange("B2").values = [[new Date("2025-10-06T00:00:00Z")]];
+  adaptation.getRange("B2").format.numberFormat = "yyyy-mm-dd";
+  adaptation.getRange("C2:G2").merge();
+  adaptation.getRange("C2").values = [[
+    "Контрольные даты рассчитываются от даты выхода; фактическое завершение фиксируется в HR Portal",
+  ]];
+  adaptation.getRange("A2:G2").format = {
+    fill: colors.pale,
+    font: { color: colors.muted, italic: true },
+    wrapText: true,
+  };
+  adaptation.getRange("A4:G13").values = [
+    ["День", "Контрольная дата", "Действие", "Ответственный", "Результат", "Особенность подразделения", "Статус"],
+    [0, null, "Активировать ACME ID и получить оборудование", "Сотрудник + IT", "MFA и MDM работают", "Для всех", "Обязательно"],
+    [1, null, "Пройти охрану труда и безопасность", "Сотрудник", "Тест не ниже 80%", "До выдачи специальных доступов", "Обязательно"],
+    [2, null, "Встреча с наставником и обзор инструментов", "Наставник", "Чек-лист первой недели", "Инженеры: обзор GitLab; продажи: CRM", "Обязательно"],
+    [4, null, "Изучить продукты и культурный код", "Сотрудник", "Ответы на контрольные вопросы", "Продукт: разбор пользовательского сценария", "Обязательно"],
+    [7, null, "Согласовать цели на 30 дней", "Руководитель", "Три измеримые цели", "Поддержка: допуск к самостоятельной смене", "Обязательно"],
+    [14, null, "Выполнить первую задачу с наставником", "Сотрудник", "Принятый рабочий результат", "Зависит от роли", "Обязательно"],
+    [30, null, "Контрольная встреча 30 дней", "Руководитель", "Обратная связь и обновлённые цели", "Для всех", "Контроль"],
+    [60, null, "Контрольная встреча 60 дней", "Руководитель", "Оценка самостоятельности", "Для всех", "Контроль"],
+    [90, null, "Итоги испытательного срока", "Руководитель + People Ops", "Решение зафиксировано в HR Portal", "Для всех", "Контроль"],
+  ];
+  adaptation.getRange("B5").formulas = [["=$B$2+A5"]];
+  adaptation.getRange("B5:B13").fillDown();
+  adaptation.getRange("B5:B13").format.numberFormat = "yyyy-mm-dd";
+  applyHeader(adaptation, "A4:G4");
+  applyBody(adaptation, "A5:G13");
+  adaptation.getRange("A5:A13").format.numberFormat = "0";
+  adaptation.getRange("A5:G13").format.rowHeight = 44;
+  adaptation.getRange("A5:G13").conditionalFormats.add("Custom", {
+    formula: "=$G5=\"Обязательно\"",
+    format: { fill: "#EAF3F3", font: { color: colors.navy } },
+  });
+  adaptation.freezePanes.freezeRows(4);
+  [10, 18, 38, 25, 32, 38, 16].forEach((width, index) => {
+    adaptation.getRangeByIndexes(0, index, 13, 1).format.columnWidth = width;
+  });
+
+  access.showGridLines = false;
+  applyTitle(access, "A1:F1", "Доступы нового сотрудника");
+  access.getRange("A3:F10").values = [
+    ["Система", "Назначение", "Кому нужна", "Согласующие", "Целевой срок", "Предусловие"],
+    ["CorpMail / Connect", "Почта и коммуникации", "Все сотрудники", "Автоматически", "До 4 часов", "Активация HR"],
+    ["Corporate VPN", "Удалённый доступ", "Гибрид и удалённые роли", "IT Security", "1 рабочий день", "Тренинг по ИБ"],
+    ["CRM", "Сделки и клиенты", "Продажи", "Руководитель + Sales Ops", "2 рабочих дня", "Обучение CRM"],
+    ["GitLab", "Код и CI/CD", "Инженерия", "Руководитель + владелец репозитория", "1 рабочий день", "Тренинг по ИБ"],
+    ["BI", "Отчётность", "Аналитики и руководители", "Руководитель + владелец данных", "3 рабочих дня", "Обоснование набора данных"],
+    ["HR Portal", "Кадровые документы", "Все сотрудники", "Автоматически", "До 4 часов", "Активация HR"],
+    ["Привилегированный", "Администрирование", "Назначенные администраторы", "Руководитель + IT Security", "5 рабочих дней", "Отдельное обоснование"],
+  ];
+  applyHeader(access, "A3:F3");
+  applyBody(access, "A4:F10");
+  access.getRange("A4:F10").format.rowHeight = 42;
+  access.freezePanes.freezeRows(3);
+  [24, 30, 28, 38, 20, 30].forEach((width, index) => {
+    access.getRangeByIndexes(0, index, 10, 1).format.columnWidth = width;
+  });
+
+  await renderSheet(workbook, "Графики", "work-schedules.png");
+  await renderSheet(workbook, "Адаптация", "adaptation-plan.png");
+  await renderSheet(workbook, "Доступы", "onboarding-access.png");
+  await saveWorkbook(workbook, "work_schedule_and_adaptation.xlsx");
 }
 
 await fs.mkdir(qaDir, { recursive: true });
 await createEquipmentRegister();
 await createLeaveCalendar();
+await createWorkScheduleAndAdaptation();

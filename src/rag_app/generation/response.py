@@ -33,7 +33,7 @@ def parse_model_response(raw: str) -> ModelResponse:
         question = payload.get("question")
         raw_options = payload.get("options")
         if isinstance(question, str) and question.strip() and isinstance(raw_options, list):
-            options = _clean_options(raw_options)
+            options = _limit_options(_clean_options(raw_options))
             if 2 <= len(options) <= 5:
                 return ModelResponse(
                     response_type="clarification",
@@ -62,3 +62,19 @@ def _clean_options(values: list[object]) -> list[str]:
         if option and option not in result:
             result.append(option)
     return result
+
+
+def _limit_options(options: list[str]) -> list[str]:
+    if len(options) <= 5:
+        return options
+    catch_all = next(
+        (
+            option
+            for option in reversed(options)
+            if option.casefold().startswith(("друг", "иное", "иной", "не из"))
+        ),
+        None,
+    )
+    if catch_all is not None and catch_all not in options[:4]:
+        return [*options[:4], catch_all]
+    return options[:5]

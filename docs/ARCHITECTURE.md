@@ -2,14 +2,19 @@
 title: Архитектура
 type: architecture
 status: active
-updated: 2026-08-04
+updated: 2026-08-08
 ---
 
 # Архитектура
 
 ## Контекст
 
-Один локальный web-клиент обращается к FastAPI. API хранит метаданные и диалоги в PostgreSQL, а файлы — в Docker volume. Отдельный worker извлекает текст и вызывает GigaChat Embeddings. На вопрос API выполняет hybrid retrieval и вызывает GigaChat 2 Pro.
+Один локальный web-клиент обращается к FastAPI. API хранит метаданные и диалоги в PostgreSQL, а
+файлы и изображения страниц — в Docker volume. Worker извлекает обычный текст; PDF/DOCX со
+встроенными изображениями дополнительно рендерит постранично, разбирает через GigaChat Vision и
+вызывает GigaChat Embeddings. На вопрос API выполняет hybrid retrieval, уточняет визуальный сценарий
+при нескольких подходящих инструкциях, разворачивает выбранную последовательность шагов и вызывает
+GigaChat 2 Pro. Источники ответа строятся отдельно: только из процитированных уникальных страниц.
 
 ```mermaid
 flowchart LR
@@ -19,6 +24,7 @@ flowchart LR
   API --> Files[("Volume документов")]
   Worker["Ingestion worker"] --> DB
   Worker --> Files
+  Worker --> Render["Poppler + LibreOffice"]
   API --> Lock["PostgreSQL advisory lock"]
   Worker --> Lock
   Lock --> Giga["GigaChat API"]
@@ -40,9 +46,9 @@ flowchart LR
 | --- | --- | --- |
 | Web UI | пространства, upload, polling, чат, источники | показывает безопасное сообщение API |
 | API | валидация, метаданные, retrieval, generation | 4xx для входа, 502 для провайдера |
-| Worker | claim, extract, chunk, embed, status | документ получает `error`, доступен retry |
+| Worker | claim, extract, render, vision, chunk, embed, status | документ получает `error`, доступен retry |
 | PostgreSQL | очередь, версии, HNSW, FTS, диалоги | health становится degraded |
-| GigaChat adapter | OAuth cache, embeddings, chat | секреты редактируются, ошибка не маскируется |
+| GigaChat adapter | OAuth, embeddings, chat, image upload/analyze/delete | секреты редактируются, ошибка не маскируется |
 
 ## Путь пользователя
 
@@ -73,7 +79,13 @@ sequenceDiagram
   A->>D: document(status=queued)
   A-->>U: 202 Accepted
   W->>D: SELECT ... FOR UPDATE SKIP LOCKED
-  W->>W: extract → chunk ≤ 1100 chars
+  W->>W: extract
+  opt PDF/DOCX содержит изображения
+    W->>W: render страниц → PNG
+    W->>G: upload PNG → vision JSON → delete remote file
+    W->>W: JSON → упорядоченные шаги с номером страницы
+  end
+  W->>W: chunk ≤ 1100 chars
   W->>G: batches of 8
   G-->>W: vectors[1024]
   W->>D: chunks + status=ready
@@ -94,11 +106,17 @@ sequenceDiagram
   A->>G: embedding(retrieval query)
   A->>D: vector top-N + Russian FTS top-N
   A->>A: Reciprocal Rank Fusion → top-6
+  opt найдено несколько visual-инструкций без явного приложения
+    A-->>U: выбрать приложение/платформу
+    U->>A: выбранный вариант + same conversation_id
+  end
+  A->>D: последовательные visual-шаги найденных документов (до 40 chunks)
   A->>G: guarded prompt + numbered sources
   G-->>A: JSON answer или clarification
   alt достаточно данных
-    A->>D: question + answer + source metadata
-    A-->>U: answer + sources + token usage
+    A->>A: процитированные chunks → уникальные страницы
+    A->>D: question + answer + compact source metadata
+    A-->>U: answer + compact sources + token usage
   else требуется атрибут
     A->>D: question + clarification
     A-->>U: clarification + 2–5 options

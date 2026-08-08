@@ -24,6 +24,8 @@ def create_provider(settings: Settings, *, engine: Engine | None = None) -> Mode
         generation_model=settings.generation_model,
         api_base_url=settings.gigachat_api_base_url,
         max_output_tokens=settings.generation_max_tokens,
+        vision_max_output_tokens=settings.vision_max_output_tokens,
+        client_id=settings.gigachat_client_id,
         verify_ssl=settings.gigachat_verify_ssl,
         ca_bundle_file=settings.gigachat_ca_bundle_file,
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import uuid
 from collections.abc import Iterator
 from contextlib import suppress
@@ -7,6 +8,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -22,6 +24,7 @@ from rag_app.api.schemas import (
 from rag_app.db.models import Conversation, Document, DocumentStatus, KnowledgeSpace, Message
 from rag_app.db.session import database_is_ready
 from rag_app.ingestion.extractors import SUPPORTED_EXTENSIONS
+from rag_app.ingestion.visual import page_image_path
 from rag_app.providers.base import ProviderError
 from rag_app.services.chat import ChatService, ChatValidationError
 from rag_app.services.ingestion import (
@@ -66,6 +69,7 @@ def public_config(request: Request) -> dict[str, object]:
         "max_upload_mb": settings.max_upload_mb,
         "generation_model": settings.generation_model,
         "embedding_model": settings.embedding_model,
+        "vision_ingestion_enabled": settings.vision_ingestion_enabled,
     }
 
 
@@ -167,18 +171,42 @@ def retry_document(document_id: uuid.UUID, session: SessionDependency) -> Docume
     return document
 
 
+@router.get("/documents/{document_id}/pages/{page_number}", response_class=FileResponse)
+def document_page(
+    request: Request,
+    document_id: uuid.UUID,
+    page_number: int,
+    session: SessionDependency,
+) -> FileResponse:
+    document = session.get(Document, document_id)
+    if document is None or page_number < 1:
+        raise HTTPException(status_code=404, detail="Страница документа не найдена")
+    root = request.app.state.settings.data_dir.resolve()
+    image = page_image_path(Path(document.storage_path), page_number).resolve()
+    if not image.is_relative_to(root) or not image.is_file():
+        raise HTTPException(status_code=404, detail="Страница документа не найдена")
+    return FileResponse(image, media_type="image/png", headers={"Cache-Control": "private"})
+
+
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(document_id: uuid.UUID, session: SessionDependency) -> None:
+def delete_document(
+    request: Request, document_id: uuid.UUID, session: SessionDependency
+) -> None:
     document = session.get(Document, document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Документ не найден")
-    storage_parent = Path(document.storage_path).parent
+    path = Path(document.storage_path)
+    storage_parent = path.parent.resolve()
     session.execute(delete(Document).where(Document.id == document_id))
     session.commit()
-    path = Path(document.storage_path)
-    path.unlink(missing_ok=True)
-    with suppress(OSError):
-        storage_parent.rmdir()
+    root = request.app.state.settings.data_dir.resolve()
+    expected_uuid_directory = storage_parent.name == str(document_id)
+    if expected_uuid_directory and storage_parent != root and storage_parent.is_relative_to(root):
+        shutil.rmtree(storage_parent, ignore_errors=True)
+    else:
+        path.unlink(missing_ok=True)
+        with suppress(OSError):
+            storage_parent.rmdir()
 
 
 @router.post("/chat", response_model=ChatResponse)

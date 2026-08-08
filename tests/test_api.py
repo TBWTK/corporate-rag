@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from rag_app.api.routes import router
 from rag_app.config import Settings
+from rag_app.db.models import Document
 from rag_app.providers.base import Completion, ProviderError
 from rag_app.providers.fake import FakeProvider
 from rag_app.retrieval.search import RetrievedChunk
+from rag_app.services.chat import _cited_source_groups
 from rag_app.services.ingestion import IngestionWorker
 
 
@@ -72,7 +74,15 @@ def test_upload_duplicate_retry_and_delete(api_app: FastAPI) -> None:
     assert retried.status_code == 200
     assert retried.json()["status"] == "queued"
     assert client.post(f"/api/documents/{uuid.uuid4()}/retry").status_code == 404
+    with api_app.state.session_factory() as session:
+        stored = session.get(Document, uuid.UUID(document["id"]))
+        assert stored is not None
+        storage_directory = Path(stored.storage_path).parent
+    pages = storage_directory / "pages"
+    pages.mkdir()
+    (pages / "page-1.png").write_bytes(b"page")
     assert client.delete(f"/api/documents/{document['id']}").status_code == 204
+    assert not storage_directory.exists()
     assert client.delete(f"/api/documents/{document['id']}").status_code == 404
 
 
@@ -107,6 +117,14 @@ def test_chat_persists_messages_and_sources(
         api_app.state.session_factory,
         api_app.state.provider,
     ).process_next()
+    with api_app.state.session_factory() as session:
+        stored = session.get(Document, uuid.UUID(document["id"]))
+        assert stored is not None
+        storage_path = Path(stored.storage_path)
+    page_dir = storage_path.parent / "pages"
+    page_dir.mkdir()
+    page_payload = b"fake-png-for-api"
+    (page_dir / "page-1.png").write_bytes(page_payload)
 
     def fake_search(*_args: object, **_kwargs: object) -> list[RetrievedChunk]:
         return [
@@ -114,9 +132,10 @@ def test_chat_persists_messages_and_sources(
                 id=uuid.uuid4(),
                 document_id=uuid.UUID(document["id"]),
                 filename="policy.txt",
-                location="текст",
+                location="стр. 1 · шаг 1",
                 content="Hotel limit is 10000 rubles",
                 score=0.03,
+                storage_path=str(storage_path),
             )
         ]
 
@@ -128,6 +147,11 @@ def test_chat_persists_messages_and_sources(
     assert response.status_code == 200
     answer = response.json()
     assert answer["sources"][0]["filename"] == "policy.txt"
+    assert answer["sources"][0]["image_url"] == (f"/api/documents/{document['id']}/pages/1")
+    page_response = client.get(answer["sources"][0]["image_url"])
+    assert page_response.status_code == 200
+    assert page_response.content == page_payload
+    assert client.get(f"/api/documents/{document['id']}/pages/0").status_code == 404
     assert "[1]" in answer["answer"]
 
     follow_up = client.post(
@@ -230,6 +254,150 @@ def test_chat_clarification_and_follow_up_use_shared_conversation(
     retrieval_query = provider.embedding_inputs[-1]
     assert "Сколько дней можно работать удалённо?" in retrieval_query
     assert "Отдел продаж" in retrieval_query
+
+
+def test_visual_chat_clarifies_scenario_before_generation(
+    api_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = TestClient(api_app)
+    space = create_space(client, "Рабочие инструкции")
+    uploaded = client.post(
+        f"/api/spaces/{space['id']}/documents",
+        files=[
+            ("files", ("ios.txt", b"iOS mail", "text/plain")),
+            ("files", ("outlook.txt", b"Outlook mail", "text/plain")),
+        ],
+    ).json()["documents"]
+
+    class TrackingProvider(FakeProvider):
+        def __init__(self) -> None:
+            super().__init__()
+            self.generation_count = 0
+
+        def generate(self, messages: list[dict[str, str]]) -> Completion:
+            self.generation_count += 1
+            return Completion(
+                text=json.dumps(
+                    {
+                        "response_type": "answer",
+                        "answer": "Откройте Outlook и добавьте учётную запись [1].",
+                    },
+                    ensure_ascii=False,
+                ),
+                model="scripted",
+            )
+
+    provider = TrackingProvider()
+    api_app.state.provider = provider
+    worker = IngestionWorker(api_app.state.settings, api_app.state.session_factory, provider)
+    while worker.process_next():
+        pass
+
+    ios_id = uuid.UUID(uploaded[0]["id"])
+    outlook_id = uuid.UUID(uploaded[1]["id"])
+
+    def fake_search(*_args: object, **_kwargs: object) -> list[RetrievedChunk]:
+        return [
+            RetrievedChunk(
+                id=uuid.uuid4(),
+                document_id=ios_id,
+                filename="Стандартная почта IOS.pdf",
+                location="стр. 1 · шаг 1",
+                content="Откройте настройки iOS",
+                score=0.05,
+            ),
+            RetrievedChunk(
+                id=uuid.uuid4(),
+                document_id=outlook_id,
+                filename="Настройка почты мобильные устройства Outlook.pdf",
+                location="стр. 1 · шаг 1",
+                content="Откройте Outlook",
+                score=0.04,
+            ),
+        ]
+
+    monkeypatch.setattr("rag_app.services.chat.hybrid_search", fake_search)
+    clarification_response = client.post(
+        "/api/chat",
+        json={
+            "space_id": space["id"],
+            "question": "Настройка почты на мобильных устройствах",
+        },
+    )
+
+    assert clarification_response.status_code == 200
+    clarification = clarification_response.json()
+    assert clarification["response_type"] == "clarification"
+    assert clarification["clarification_options"] == [
+        "Стандартная почта iOS",
+        "Настройка почты мобильные устройства Outlook",
+    ]
+    assert clarification["sources"] == []
+    assert provider.generation_count == 0
+
+    answer_response = client.post(
+        "/api/chat",
+        json={
+            "space_id": space["id"],
+            "question": "Настройка почты мобильные устройства Outlook",
+            "conversation_id": clarification["conversation_id"],
+        },
+    )
+
+    assert answer_response.status_code == 200
+    answer = answer_response.json()
+    assert answer["response_type"] == "answer"
+    assert [source["filename"] for source in answer["sources"]] == [
+        "Настройка почты мобильные устройства Outlook.pdf"
+    ]
+    assert provider.generation_count == 1
+
+
+def test_cited_source_groups_merge_steps_on_the_same_page() -> None:
+    document_id = uuid.uuid4()
+    page_one_step_one = RetrievedChunk(
+        id=uuid.uuid4(),
+        document_id=document_id,
+        filename="guide.pdf",
+        location="стр. 1 · шаг 1",
+        content="Шаг 1: Откройте настройки",
+        score=0.05,
+    )
+    page_one_step_two = RetrievedChunk(
+        id=uuid.uuid4(),
+        document_id=document_id,
+        filename="guide.pdf",
+        location="стр. 1 · шаг 2",
+        content="Шаг 2: Выберите почту",
+        score=0.05,
+    )
+    page_two = RetrievedChunk(
+        id=uuid.uuid4(),
+        document_id=document_id,
+        filename="guide.pdf",
+        location="стр. 2 · шаг 3",
+        content="Шаг 3: Введите адрес",
+        score=0.05,
+    )
+    unused = RetrievedChunk(
+        id=uuid.uuid4(),
+        document_id=document_id,
+        filename="guide.pdf",
+        location="стр. 3 · шаг 4",
+        content="Шаг 4: Не процитирован",
+        score=0.05,
+    )
+
+    groups = _cited_source_groups(
+        "Откройте настройки [2], затем введите адрес [3]. Также см. [1].",
+        [page_one_step_one, page_one_step_two, page_two, unused],
+    )
+
+    assert len(groups) == 2
+    assert groups[0].citation_numbers == (1, 2)
+    assert groups[0].items == (page_one_step_one, page_one_step_two)
+    assert groups[1].citation_numbers == (3,)
+    assert groups[1].items == (page_two,)
 
 
 def test_chat_errors_are_mapped(api_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:

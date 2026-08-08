@@ -37,3 +37,25 @@ def test_invalid_clarification_falls_back_without_fake_options() -> None:
 
     assert result.response_type == "answer"
     assert result.options == []
+
+
+def test_clarification_compacts_excess_options_and_preserves_catch_all() -> None:
+    raw = """{
+      "response_type": "clarification",
+      "question": "Какое ваше подразделение?",
+      "options": [
+        "Продажи", "Инженерный отдел", "Продукт", "Финансы",
+        "Поддержка", "Дизайн", "Другое"
+      ]
+    }"""
+
+    result = parse_model_response(raw)
+
+    assert result.response_type == "clarification"
+    assert result.options == [
+        "Продажи",
+        "Инженерный отдел",
+        "Продукт",
+        "Финансы",
+        "Другое",
+    ]

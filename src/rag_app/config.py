@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(default=6, ge=1, le=20)
     retrieval_candidates: int = Field(default=18, ge=4, le=100)
     generation_max_tokens: int = Field(default=1200, ge=128, le=4096)
+    vision_ingestion_enabled: bool = True
+    vision_max_output_tokens: int = Field(default=2400, ge=256, le=8192)
+    visual_page_dpi: int = Field(default=144, ge=72, le=300)
+    visual_render_timeout_seconds: float = Field(default=120.0, ge=10, le=600)
+    visual_max_pages: int = Field(default=100, ge=1, le=500)
+    visual_context_max_chunks: int = Field(default=40, ge=6, le=100)
 
     worker_poll_seconds: float = Field(default=1.5, ge=0.1, le=30)
     processing_timeout_minutes: int = Field(default=15, ge=1, le=240)

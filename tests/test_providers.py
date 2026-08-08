@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import time
+from pathlib import Path
 
 import httpx
 import pytest
@@ -90,3 +92,67 @@ def test_gigachat_provider_surfaces_safe_error() -> None:
             provider.embed(["текст"])
 
     assert "secret" not in str(error.value)
+
+
+def test_gigachat_vision_uploads_analyzes_and_deletes_image(tmp_path: Path) -> None:
+    requests: list[httpx.Request] = []
+    file_id = "6f0b1291-c7f3-43c6-bb2e-9f3efb2dc98e"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/v2/oauth":
+            return httpx.Response(
+                200,
+                json={
+                    "access_token": "access-token",
+                    "expires_at": int((time.time() + 1800) * 1000),
+                },
+            )
+        assert request.headers["Authorization"] == "Bearer access-token"
+        assert request.headers["X-Client-ID"] == "client-42"
+        if request.url.path == "/v1/files":
+            assert "multipart/form-data" in request.headers["Content-Type"]
+            assert b'name="purpose"' in request.content
+            assert b"general" in request.content
+            assert b"page.png" in request.content
+            return httpx.Response(200, json={"id": file_id})
+        if request.url.path == "/v1/chat/completions":
+            payload = json.loads(request.content)
+            assert payload["messages"][0]["attachments"] == [file_id]
+            assert payload["messages"][0]["content"] == "Разбери страницу"
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {"content": '{"page_summary":"Настройка"}'},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "model": "GigaChat-2-Pro",
+                    "usage": {"prompt_tokens": 20, "completion_tokens": 7},
+                },
+            )
+        if request.url.path == f"/v1/files/{file_id}/delete":
+            return httpx.Response(200, json={"deleted": True})
+        raise AssertionError(f"Unexpected URL: {request.url}")
+
+    image = tmp_path / "page.png"
+    image.write_bytes(b"not-a-real-png-needed-for-http-test")
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        provider = GigaChatProvider(
+            auth_key="auth-key",
+            generation_model="GigaChat-2-Pro",
+            client_id="client-42",
+            client=client,
+        )
+        completion = provider.analyze_image(image, prompt="Разбери страницу")
+
+    assert completion.text == '{"page_summary":"Настройка"}'
+    assert completion.prompt_tokens == 20
+    assert [request.url.path for request in requests] == [
+        "/api/v2/oauth",
+        "/v1/files",
+        "/v1/chat/completions",
+        f"/v1/files/{file_id}/delete",
+    ]

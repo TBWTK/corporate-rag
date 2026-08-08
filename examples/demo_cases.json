@@ -3,76 +3,277 @@
     "id": "answer-security-contact",
     "kind": "answer",
     "question": "Куда звонить при подозрении на компрометацию учётной записи?",
-    "expected": "Внутренний номер 7711; прекратить работу и сохранить доказательства."
+    "expected": "Внутренний номер 7711; прекратить работу и сохранить доказательства.",
+    "source_files": ["security_incident_playbook.txt", "information_security.md"]
   },
   {
     "id": "answer-data-level",
     "kind": "answer",
     "question": "Можно ли отправить договор через личную почту?",
-    "expected": "Нет: договор относится к конфиденциальным данным и требует защищённого канала."
+    "expected": "Нет: договор относится к конфиденциальным данным и требует защищённого канала.",
+    "source_files": ["data_classification_policy.html", "corporate_resources_policy.md"]
   },
   {
     "id": "answer-regional-remote",
     "kind": "answer",
     "question": "Сколько дней сотрудник новосибирского офиса должен работать из офиса?",
-    "expected": "Не менее одного дня в неделю по соглашению RW-REG-2025."
+    "expected": "Не менее одного дня в неделю по соглашению RW-REG-2025.",
+    "source_files": ["additional_agreement_remote_regional.txt"]
   },
   {
     "id": "answer-executive-hotel",
     "kind": "answer",
     "question": "Какой лимит гостиницы у руководителя высшего звена в поездке по России?",
-    "expected": "18 000 рублей за ночь с 1 сентября 2025 года."
+    "expected": "18 000 рублей за ночь с 1 сентября 2025 года.",
+    "source_files": ["additional_agreement_travel_executives.md"]
   },
   {
     "id": "clarification-remote",
     "kind": "clarification",
     "question": "Сколько дней я могу работать удалённо?",
-    "expected": "Уточнить подразделение или регион: базовый и специальные режимы различаются."
+    "expected": "Уточнить подразделение или регион: базовый и специальные режимы различаются.",
+    "source_files": [
+      "work_format_policy.html",
+      "additional_agreement_remote_sales.docx",
+      "additional_agreement_remote_engineering.pdf",
+      "additional_agreement_remote_regional.txt"
+    ]
   },
   {
     "id": "clarification-bonus",
     "kind": "clarification",
     "question": "Какой у меня целевой квартальный бонус?",
-    "expected": "Уточнить подразделение: для продаж, продукта и остальных сотрудников разные правила."
+    "expected": "Уточнить подразделение: для продаж, продукта и остальных сотрудников разные правила.",
+    "source_files": [
+      "bonus_policy.md",
+      "additional_agreement_bonus_sales.docx",
+      "additional_agreement_bonus_product.pdf"
+    ]
   },
   {
     "id": "clarification-procurement",
     "kind": "clarification",
     "question": "Кто согласует закупку на 600 000 рублей?",
-    "expected": "Уточнить категорию расхода: операционный или капитальный."
+    "expected": "Уточнить категорию расхода: операционный или капитальный.",
+    "source_files": ["procurement_thresholds.csv", "procurement_policy.pptx"]
   },
   {
     "id": "clarification-travel",
     "kind": "clarification",
     "question": "Какой у меня лимит на гостиницу в командировке по России?",
-    "expected": "Уточнить категорию сотрудника и регион поездки."
+    "expected": "Уточнить категорию сотрудника и регион поездки.",
+    "source_files": [
+      "travel_policy.txt",
+      "additional_agreement_travel_executives.md",
+      "additional_agreement_travel_north_regions.pdf"
+    ]
   },
   {
     "id": "two-turn-remote-sales",
     "kind": "two_turn",
     "question": "Сколько дней я могу работать удалённо?",
     "follow_up": "Я работаю в отделе продаж.",
-    "expected": "Три удалённых дня в неделю по соглашению RW-SALES-2025."
+    "expected": "Три удалённых дня в неделю по соглашению RW-SALES-2025.",
+    "source_files": ["work_format_policy.html", "additional_agreement_remote_sales.docx"]
   },
   {
     "id": "two-turn-bonus-product",
     "kind": "two_turn",
     "question": "Какой целевой бонус действует для меня?",
     "follow_up": "Я из продуктового отдела.",
-    "expected": "12% квартального оклада при своевременном релизе и выполнении целей."
+    "expected": "12% квартального оклада при своевременном релизе и выполнении целей.",
+    "source_files": ["bonus_policy.md", "additional_agreement_bonus_product.pdf"]
   },
   {
     "id": "two-turn-procurement-capex",
     "kind": "two_turn",
     "question": "Кто согласует закупку на 600 000 рублей?",
     "follow_up": "Это капитальные расходы на серверное оборудование.",
-    "expected": "Закупочная комиссия и CFO; нужно минимум три предложения."
+    "expected": "Закупочная комиссия и CFO; нужно минимум три предложения.",
+    "source_files": ["procurement_thresholds.csv", "procurement_policy.pptx"]
   },
   {
     "id": "two-turn-travel-north",
     "kind": "two_turn",
     "question": "Какой лимит гостиницы применяется к моей поездке?",
     "follow_up": "Обычный сотрудник едет в Норильск.",
-    "expected": "14 000 рублей за ночь по северному дополнительному соглашению."
+    "expected": "14 000 рублей за ночь по северному дополнительному соглашению.",
+    "source_files": ["travel_policy.txt", "additional_agreement_travel_north_regions.pdf"]
+  },
+  {
+    "id": "answer-contract-probation",
+    "kind": "answer",
+    "question": "Какой испытательный срок указан в типовом трудовом договоре?",
+    "expected": "Три месяца, если индивидуальное соглашение не устанавливает иное.",
+    "source_files": ["employment_contract_template.docx"]
+  },
+  {
+    "id": "answer-office-guest",
+    "kind": "answer",
+    "question": "До какого времени нужно зарегистрировать гостя в офис?",
+    "expected": "До 16:00 предыдущего рабочего дня; гость должен быть с сопровождающим.",
+    "source_files": ["office_rules.md"]
+  },
+  {
+    "id": "answer-video-retention",
+    "kind": "answer",
+    "question": "Сколько хранится обычная запись видеонаблюдения?",
+    "expected": "30 календарных дней; фрагмент расследования может храниться до 90 дней.",
+    "source_files": ["video_surveillance_policy.txt"]
+  },
+  {
+    "id": "answer-personal-data-incident",
+    "kind": "answer",
+    "question": "Куда и когда сообщить об ошибочной отправке персональных данных?",
+    "expected": "На privacy@acme.demo и по номеру 7711 не позднее 30 минут.",
+    "source_files": ["personal_data_policy.html"]
+  },
+  {
+    "id": "answer-safety-assembly",
+    "kind": "answer",
+    "question": "Куда идти при эвакуации из офиса?",
+    "expected": "На точку сбора «Парковка B»; лифтом пользоваться нельзя.",
+    "source_files": ["occupational_health_safety.html"]
+  },
+  {
+    "id": "answer-personal-cloud",
+    "kind": "answer",
+    "question": "Можно ли хранить рабочие файлы в личном облаке?",
+    "expected": "Нет; рабочие данные хранятся только в утверждённых корпоративных системах.",
+    "source_files": ["corporate_resources_policy.md"]
+  },
+  {
+    "id": "answer-product-formats",
+    "kind": "answer",
+    "question": "Какие форматы файлов принимает Context Spaces?",
+    "expected": "PDF, DOCX, XLSX, PPTX, TXT, Markdown, CSV и HTML до 25 МБ.",
+    "source_files": ["product_overview.md"]
+  },
+  {
+    "id": "answer-corpmail-access",
+    "kind": "answer",
+    "question": "Когда новому сотруднику выдаётся CorpMail?",
+    "expected": "Автоматически, до четырёх часов после активации в HR Portal.",
+    "source_files": ["corporate_email_setup.html", "it_systems_catalog.csv"]
+  },
+  {
+    "id": "clarification-work-format",
+    "kind": "clarification",
+    "question": "Когда мне обязательно быть в офисе?",
+    "expected": "Уточнить подразделение, роль и при необходимости регион: офисный, гибридный и сменный режимы различаются.",
+    "source_files": ["work_format_policy.html", "work_schedule_and_adaptation.xlsx"]
+  },
+  {
+    "id": "clarification-work-start",
+    "kind": "clarification",
+    "question": "Во сколько начинается мой рабочий день?",
+    "expected": "Уточнить подразделение и смену: начало может быть 08:00, 09:00, 10:00 или 20:00.",
+    "source_files": ["work_schedule_and_adaptation.xlsx", "additional_agreement_support_shifts.docx"]
+  },
+  {
+    "id": "clarification-support-home",
+    "kind": "clarification",
+    "question": "Можно ли мне работать из дома в смену поддержки?",
+    "expected": "Уточнить линию поддержки и тип смены: для L1, L2, дневной и ночной смены правила различаются.",
+    "source_files": ["additional_agreement_support_shifts.docx", "work_schedule_and_adaptation.xlsx"]
+  },
+  {
+    "id": "clarification-access-approval",
+    "kind": "clarification",
+    "question": "Кто согласует мне доступ?",
+    "expected": "Уточнить систему и рабочую роль: CRM, GitLab, BI, VPN и привилегированный доступ имеют разные маршруты.",
+    "source_files": ["access_request_guide.txt", "it_systems_catalog.csv"]
+  },
+  {
+    "id": "clarification-first-week",
+    "kind": "clarification",
+    "question": "Что я должен сделать в первую неделю?",
+    "expected": "Уточнить подразделение или роль: общие шаги дополняются GitLab, CRM, продуктовым разбором или допуском к смене.",
+    "source_files": ["first_weeks_materials.html", "work_schedule_and_adaptation.xlsx"]
+  },
+  {
+    "id": "clarification-camera-request",
+    "kind": "clarification",
+    "question": "Можно ли получить запись с камеры?",
+    "expected": "Уточнить время, зону, цель и связь с инцидентом; прямого доступа руководителю отдела нет.",
+    "source_files": ["video_surveillance_policy.txt"]
+  },
+  {
+    "id": "clarification-office-days",
+    "kind": "clarification",
+    "question": "Когда мне обязательно быть в офисе?",
+    "expected": "Уточнить подразделение, роль и календарный период: офисные дни и закрытие месяца различаются.",
+    "source_files": ["work_schedule_and_adaptation.xlsx", "work_format_policy.html"]
+  },
+  {
+    "id": "clarification-internal-tool",
+    "kind": "clarification",
+    "question": "Какой внутренний инструмент мне нужен для работы?",
+    "expected": "Уточнить задачу и подразделение: CRM, GitLab, BI, HR Portal и Service Desk имеют разные назначения.",
+    "source_files": ["internal_tools_guide.html", "it_systems_catalog.csv"]
+  },
+  {
+    "id": "two-turn-finance-format",
+    "kind": "two_turn",
+    "question": "Какой у меня формат работы?",
+    "follow_up": "Я работаю в финансовом контроле.",
+    "expected": "Понедельник–четверг в офисе; пятница может быть удалённой, но последние три рабочих дня месяца — офисные.",
+    "source_files": ["work_format_policy.html", "additional_agreement_finance_office.docx"]
+  },
+  {
+    "id": "two-turn-support-l2-day",
+    "kind": "two_turn",
+    "question": "Какой график и место работы у моей смены?",
+    "follow_up": "Я специалист L2, у меня дневная смена.",
+    "expected": "График 2/2 с 08:00 до 20:00; до двух дневных смен в месяц можно работать удалённо после согласования.",
+    "source_files": ["additional_agreement_support_shifts.docx", "work_schedule_and_adaptation.xlsx"]
+  },
+  {
+    "id": "two-turn-design-hybrid",
+    "kind": "two_turn",
+    "question": "Сколько дней я могу работать удалённо?",
+    "follow_up": "Я UX-дизайнер продуктового блока.",
+    "expected": "До трёх удалённых дней; вторник и четверг являются офисными днями.",
+    "source_files": ["work_format_policy.html", "additional_agreement_design_hybrid.pdf"]
+  },
+  {
+    "id": "two-turn-crm-access",
+    "kind": "two_turn",
+    "question": "Кто согласует доступ и сколько ждать?",
+    "follow_up": "Я менеджер отдела продаж, мне нужен CRM.",
+    "expected": "Руководитель и Sales Operations; целевой срок — два рабочих дня.",
+    "source_files": ["access_request_guide.txt", "it_systems_catalog.csv"]
+  },
+  {
+    "id": "two-turn-engineer-onboarding",
+    "kind": "two_turn",
+    "question": "Что входит в мою первую неделю адаптации?",
+    "follow_up": "Я новый инженер разработки.",
+    "expected": "Общие тренинги, встреча с наставником, обзор GitLab и первая задача; специальные доступы после обучения по безопасности.",
+    "source_files": ["first_weeks_materials.html", "flash_trainings.md", "work_schedule_and_adaptation.xlsx"]
+  },
+  {
+    "id": "two-turn-sales-feature-request",
+    "kind": "two_turn",
+    "question": "Как передать запрос другой команде?",
+    "follow_up": "Я из продаж и клиент просит пообещать срок новой функции.",
+    "expected": "Зафиксировать подтверждённую потребность и передать владельцу продукта; не обещать срок инженерам напрямую.",
+    "source_files": ["video_intro_sales.txt", "video_intro_product.txt", "video_intro_engineering.txt"]
+  },
+  {
+    "id": "two-turn-camera-incident",
+    "kind": "two_turn",
+    "question": "Как запросить запись видеонаблюдения?",
+    "follow_up": "Нужно проверить инцидент у входа сегодня в 09:10.",
+    "expected": "Создать заявку в Service Desk с временем, зоной и целью; доступ рассматривают физическая безопасность и уполномоченный по данным.",
+    "source_files": ["video_surveillance_policy.txt"]
+  },
+  {
+    "id": "two-turn-contractor-personal-data",
+    "kind": "two_turn",
+    "question": "Можно ли передать данные подрядчику?",
+    "follow_up": "Это паспортные данные кандидата для проверки.",
+    "expected": "Только после проверки договора и цели обработки, через защищённый канал; открытый мессенджер и личные устройства запрещены.",
+    "source_files": ["personal_data_policy.html", "corporate_resources_policy.md"]
   }
 ]

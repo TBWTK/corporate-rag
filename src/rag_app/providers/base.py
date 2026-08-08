@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +17,11 @@ class ModelProvider(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
 
     def generate(self, messages: list[dict[str, str]]) -> Completion: ...
+
+
+@runtime_checkable
+class VisionModelProvider(Protocol):
+    def analyze_image(self, image_path: Path, *, prompt: str) -> Completion: ...
 
 
 class ProviderError(RuntimeError):

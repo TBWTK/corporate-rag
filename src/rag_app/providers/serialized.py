@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
+from pathlib import Path
+from typing import TypeVar, cast
 
 from sqlalchemy import Engine, text
 
-from rag_app.providers.base import Completion, ModelProvider
+from rag_app.providers.base import Completion, ModelProvider, VisionModelProvider
 
 T = TypeVar("T")
 
@@ -34,6 +35,12 @@ class PostgresSerializedProvider:
 
     def generate(self, messages: list[dict[str, str]]) -> Completion:
         return self._locked(lambda: self.provider.generate(messages))
+
+    def analyze_image(self, image_path: Path, *, prompt: str) -> Completion:
+        if not isinstance(self.provider, VisionModelProvider):
+            raise TypeError("Провайдер не поддерживает анализ изображений")
+        vision_provider = cast(VisionModelProvider, self.provider)
+        return self._locked(lambda: vision_provider.analyze_image(image_path, prompt=prompt))
 
     def close(self) -> None:
         close = getattr(self.provider, "close", None)

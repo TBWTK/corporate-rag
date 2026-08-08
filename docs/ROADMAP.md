@@ -2,7 +2,7 @@
 title: Этапы проекта
 type: roadmap
 status: complete
-updated: 2026-08-04
+updated: 2026-08-08
 ---
 
 # Этапы проекта
@@ -16,5 +16,7 @@ updated: 2026-08-04
 | Live | Реальный GigaChat подтверждён малым smoke-тестом | Один embedding и один grounded answer | done |
 | Handoff | Документация совпадает с кодом, Git чист | project-control audit и финальный commit | done |
 | Extended demo | 20 связанных файлов и уточняющий диалог работают end-to-end | corpus audit + two-turn Docker chat + docs | done |
+| Visual instructions | PDF/DOCX-скриншоты превращаются в шаги и превью источников | 7 файлов, 44 страницы, offline tests и browser QA | done |
+| Visual answer UX | Неоднозначный запрос уточняется, ответ остаётся пошаговым, источники компактны | live Outlook/iOS flow + cited-page grouping + browser QA | done |
 
 Допустимые статусы: `planned`, `active`, `blocked`, `done`.

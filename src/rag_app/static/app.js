@@ -7,6 +7,7 @@ const state = {
   polling: null,
   busy: false,
 };
+const INITIAL_SOURCE_LIMIT = 3;
 
 const el = (id) => document.getElementById(id);
 
@@ -178,6 +179,112 @@ function clearMessages() {
   el("welcome-card").style.display = "block";
 }
 
+function scrollMessagesToEnd() {
+  const messages = el("messages");
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
+  });
+}
+
+function sourceCitationLabel(source) {
+  const numbers = Array.isArray(source.citation_numbers) && source.citation_numbers.length
+    ? source.citation_numbers
+    : [source.number];
+  return numbers.map((number) => `[${number}]`).join(" ");
+}
+
+function createSourceCard(source, initiallyHidden) {
+  const card = document.createElement("details");
+  card.className = "source-card";
+  card.hidden = initiallyHidden;
+
+  const summary = document.createElement("summary");
+  const heading = document.createElement("span");
+  heading.className = "source-summary-main";
+  const citations = document.createElement("strong");
+  citations.textContent = sourceCitationLabel(source);
+  const filename = document.createElement("span");
+  filename.className = "source-filename";
+  filename.textContent = source.filename;
+  heading.append(citations, filename);
+  const location = document.createElement("span");
+  location.className = "source-location";
+  location.textContent = source.location;
+  summary.append(heading, location);
+
+  const body = document.createElement("div");
+  body.className = "source-card-body";
+  const excerpt = document.createElement("p");
+  excerpt.className = "source-excerpt";
+  excerpt.textContent = source.excerpt;
+  body.append(excerpt);
+
+  if (source.image_url) {
+    const link = document.createElement("a");
+    link.className = "source-page-link";
+    link.href = source.image_url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.title = `Открыть ${source.filename}, ${source.location}`;
+    const action = document.createElement("span");
+    action.className = "source-page-action";
+    action.textContent = "Открыть страницу ↗";
+    const image = document.createElement("img");
+    image.className = "source-image";
+    image.dataset.src = source.image_url;
+    image.alt = `Страница инструкции: ${source.filename}, ${source.location}`;
+    link.append(action, image);
+    body.append(link);
+    card.addEventListener("toggle", () => {
+      if (card.open && image.dataset.src) {
+        image.src = image.dataset.src;
+        delete image.dataset.src;
+      }
+    });
+  }
+
+  card.append(summary, body);
+  return card;
+}
+
+function appendSources(wrapper, sources) {
+  const sourceSection = document.createElement("section");
+  sourceSection.className = "sources";
+  const header = document.createElement("div");
+  header.className = "sources-header";
+  const heading = document.createElement("strong");
+  heading.textContent = `Источники · ${sources.length}`;
+  const hint = document.createElement("span");
+  hint.textContent = "Нажмите на источник, чтобы проверить страницу";
+  header.append(heading, hint);
+
+  const sourceList = document.createElement("div");
+  sourceList.className = "source-list";
+  const cards = sources.map((source, index) => {
+    const card = createSourceCard(source, index >= INITIAL_SOURCE_LIMIT);
+    sourceList.append(card);
+    return card;
+  });
+  sourceSection.append(header, sourceList);
+
+  if (cards.length > INITIAL_SOURCE_LIMIT) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "sources-more";
+    more.textContent = `Показать ещё ${cards.length - INITIAL_SOURCE_LIMIT}`;
+    more.addEventListener("click", () => {
+      const expanded = more.dataset.expanded === "true";
+      cards.slice(INITIAL_SOURCE_LIMIT).forEach((card) => { card.hidden = expanded; });
+      more.dataset.expanded = String(!expanded);
+      more.textContent = expanded
+        ? `Показать ещё ${cards.length - INITIAL_SOURCE_LIMIT}`
+        : "Скрыть дополнительные источники";
+    });
+    sourceSection.append(more);
+  }
+  wrapper.append(sourceSection);
+}
+
 function appendMessage(role, text, sources = [], loading = false, options = []) {
   el("welcome-card").style.display = "none";
   const wrapper = document.createElement("article");
@@ -190,21 +297,7 @@ function appendMessage(role, text, sources = [], loading = false, options = []) 
   if (loading) bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
   else bubble.textContent = text;
   wrapper.append(label, bubble);
-  if (sources.length) {
-    const sourceList = document.createElement("div");
-    sourceList.className = "sources";
-    sources.forEach((source) => {
-      const card = document.createElement("div");
-      card.className = "source-card";
-      const title = document.createElement("strong");
-      title.textContent = `[${source.number}] ${source.filename} · ${source.location}`;
-      const excerpt = document.createElement("span");
-      excerpt.textContent = source.excerpt;
-      card.append(title, excerpt);
-      sourceList.append(card);
-    });
-    wrapper.append(sourceList);
-  }
+  if (sources.length) appendSources(wrapper, sources);
   if (options.length) {
     const optionList = document.createElement("div");
     optionList.className = "clarification-options";
@@ -219,7 +312,7 @@ function appendMessage(role, text, sources = [], loading = false, options = []) 
     wrapper.append(optionList);
   }
   el("messages").append(wrapper);
-  el("messages").scrollTop = el("messages").scrollHeight;
+  scrollMessagesToEnd();
   return wrapper;
 }
 

@@ -42,7 +42,7 @@ def test_postgres_upload_index_retrieve_and_chat(tmp_path: Path) -> None:
             files.append(("files", (path.name, path.read_bytes(), "application/octet-stream")))
         uploaded = client.post(f"/api/spaces/{space['id']}/documents", files=files)
         assert uploaded.status_code == 202
-        assert len(uploaded.json()["documents"]) == 20
+        assert len(uploaded.json()["documents"]) == 50
 
         worker = IngestionWorker(settings, factory, FakeProvider())
         while worker.process_next():

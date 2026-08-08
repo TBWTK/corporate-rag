@@ -4,6 +4,7 @@ import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -11,8 +12,20 @@ from sqlalchemy.orm import Session, sessionmaker
 from rag_app.config import Settings
 from rag_app.db.models import Chunk, Document, DocumentStatus, KnowledgeSpace
 from rag_app.domain.chunking import TextChunk, chunk_text
-from rag_app.ingestion.extractors import SUPPORTED_EXTENSIONS, extract_document
-from rag_app.providers.base import ModelProvider, ProviderError
+from rag_app.ingestion.extractors import (
+    SUPPORTED_EXTENSIONS,
+    ExtractedDocument,
+    ExtractedUnit,
+    extract_document,
+)
+from rag_app.ingestion.vision import VISION_SYSTEM_PROMPT, build_page_prompt, parse_visual_page
+from rag_app.ingestion.visual import (
+    VISUAL_EXTENSIONS,
+    document_has_visuals,
+    page_number_from_location,
+    render_document_pages,
+)
+from rag_app.providers.base import ModelProvider, ProviderError, VisionModelProvider
 
 
 class SpaceNotFoundError(LookupError):
@@ -151,8 +164,9 @@ class IngestionWorker:
                 space_id = document.space_id
 
             extracted = extract_document(path)
+            visual_units = self._extract_visual_units(path, extracted)
             chunks: list[TextChunk] = []
-            for unit in extracted.units:
+            for unit in (*extracted.units, *visual_units):
                 for chunk in chunk_text(
                     unit.text,
                     max_chars=self.settings.chunk_max_chars,
@@ -201,6 +215,53 @@ class IngestionWorker:
                 document.processing_started_at = None
         except Exception as error:
             self._mark_error(document_id, error)
+
+    def _extract_visual_units(
+        self, path: Path, extracted: ExtractedDocument
+    ) -> tuple[ExtractedUnit, ...]:
+        if (
+            not self.settings.vision_ingestion_enabled
+            or path.suffix.casefold() not in VISUAL_EXTENSIONS
+            or not isinstance(self.provider, VisionModelProvider)
+            or not document_has_visuals(path)
+        ):
+            return ()
+
+        pages = render_document_pages(
+            path,
+            path.parent / "pages",
+            dpi=self.settings.visual_page_dpi,
+            timeout_seconds=self.settings.visual_render_timeout_seconds,
+        )
+        if len(pages) > self.settings.visual_max_pages:
+            raise ValueError(
+                f"В документе {len(pages)} страниц; лимит visual ingestion — "
+                f"{self.settings.visual_max_pages}"
+            )
+
+        native_by_page: dict[int, str] = {}
+        for unit in extracted.units:
+            page_number = page_number_from_location(unit.location)
+            if page_number is not None:
+                native_by_page[page_number] = unit.text
+
+        vision_provider = cast(VisionModelProvider, self.provider)
+        units: list[ExtractedUnit] = []
+        for page in pages:
+            task = build_page_prompt(
+                extracted.title,
+                page.number,
+                native_by_page.get(page.number, ""),
+            )
+            completion = vision_provider.analyze_image(
+                page.path,
+                prompt=f"{VISION_SYSTEM_PROMPT}\n\n{task}",
+            )
+            page_units = parse_visual_page(completion.text, page_number=page.number)
+            if not page_units:
+                raise ProviderError(f"GigaChat не извлёк содержимое страницы {page.number}")
+            units.extend(page_units)
+        return tuple(units)
 
     def _mark_error(self, document_id: uuid.UUID, error: Exception) -> None:
         if isinstance(error, (ValueError, ProviderError)):
