@@ -33,7 +33,7 @@ updated: 2026-08-08
 - [x] Extractor tests: PDF, DOCX, XLSX, PPTX, HTML.
 - [x] API integration: spaces, upload, statuses, chat, duplicate, delete.
 - [x] DB integration: pgvector DDL, ingestion и hybrid ranking.
-- [x] Coverage не ниже 80% ветвей: 83,96% (`57 passed`, `2 skipped`).
+- [x] Coverage не ниже 80% ветвей: 84,83% (`61 passed`, `2 skipped`).
 - [x] Ruff и strict mypy.
 - [x] Browser QA desktop и mobile 390×844, console чистая.
 - [x] Live smoke отдельно от CI: один synthetic embedding и короткий вопрос.
@@ -48,6 +48,10 @@ updated: 2026-08-08
   изображений; порядок страниц и читаемость проверены по PNG.
 - [x] Visual-answer UX: неоднозначная инструкция требует выбора сценария, API объединяет цитаты
   одной страницы, UI сначала показывает три свёрнутых источника и лениво загружает изображения.
+- [x] Document relations: type/status/evidence constraints, duplicate/self/cross-space/not-ready
+  validation, cascade delete, one-hop limits, suggested exclusion и source provenance покрыты офлайн.
+- [x] PostgreSQL graph integration: confirmed API relation расширяет seed реальными pgvector chunks;
+  отдельная тестовая БД создаётся и удаляется без изменения демо-данных.
 
 ## Результаты расширенного демо
 
@@ -65,6 +69,8 @@ updated: 2026-08-08
 - Live visual flow: общий запрос о мобильной почте → выбор Outlook/iOS → 13 шагов Outlook;
   11 процитированных страниц вместо 35 фрагментов, по умолчанию видны три, изображения не
   загружаются до раскрытия карточки.
+- Browser relation flow: диалог показывает направление, тип и evidence; создание и удаление
+  подтверждённой связи отражаются в счётчике и списке, временная проверочная связь удалена.
 
 ## Verification commands
 

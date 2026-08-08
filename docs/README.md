@@ -3,7 +3,7 @@ title: Корпоративный RAG
 project: Корпоративный RAG
 type: project
 status: complete
-updated: 2026-08-04
+updated: 2026-08-08
 ---
 
 # Корпоративный RAG
@@ -36,3 +36,4 @@ updated: 2026-08-04
 - [Модель угроз](SECURITY.md)
 - [Технический долг](DEBT.md)
 - [ADR: модель эмбеддингов и pgvector](decisions/ADR-001-embedding-and-vector-schema.md)
+- [ADR: подтверждённые связи документов](decisions/ADR-002-confirmed-document-relations.md)

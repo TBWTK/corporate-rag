@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Корпоративный поиск и ответы по связанным документам" />
     <title>Контекст — корпоративные знания</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260808a" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260808b" />
   </head>
   <body>
     <div class="app-shell">
@@ -49,7 +49,12 @@
                 <p class="eyebrow">Контекст</p>
                 <h2 id="documents-title">Документы</h2>
               </div>
-              <span class="count-badge" id="document-count">0</span>
+              <div class="panel-heading-actions">
+                <button class="text-button relation-manager-button" id="relations-button" disabled>
+                  Связи <span id="relation-count">0</span>
+                </button>
+                <span class="count-badge" id="document-count">0</span>
+              </div>
             </div>
 
             <label class="drop-zone" id="drop-zone" tabindex="0">
@@ -117,7 +122,53 @@
       </form>
     </dialog>
 
+    <dialog id="relation-dialog" class="relation-dialog">
+      <form id="relation-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Граф документов</p>
+            <h2>Связи документов</h2>
+          </div>
+          <button class="icon-button" id="close-relation-dialog" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <p class="dialog-description">
+          Только подтверждённые здесь связи расширяют поиск. Похожее название файла само по себе
+          связь не создаёт.
+        </p>
+        <div class="relation-list" id="relation-list"></div>
+        <h3 class="relation-form-title">Добавить подтверждённую связь</h3>
+        <div class="relation-form-grid">
+          <label>
+            Исходный документ
+            <select id="relation-source" required></select>
+          </label>
+          <label>
+            Тип связи
+            <select id="relation-type" required>
+              <option value="supplements">дополняет</option>
+              <option value="amends">изменяет</option>
+              <option value="supersedes">заменяет</option>
+              <option value="implements">реализует требования</option>
+              <option value="references">ссылается на</option>
+              <option value="attachment_to">является приложением к</option>
+            </select>
+          </label>
+          <label>
+            Связанный документ
+            <select id="relation-target" required></select>
+          </label>
+          <label class="relation-evidence-field">
+            Основание связи
+            <textarea id="relation-evidence" maxlength="1000" rows="2" required placeholder="Например: документ изменяет пункт 4 ФЗ-1"></textarea>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="primary-button" id="create-relation-submit" type="submit">Добавить связь</button>
+        </div>
+      </form>
+    </dialog>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="/static/app.js?v=20260808a" defer></script>
+    <script src="/static/app.js?v=20260808b" defer></script>
   </body>
 </html>

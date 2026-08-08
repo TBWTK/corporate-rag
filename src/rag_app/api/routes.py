@@ -9,19 +9,30 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from rag_app.api.schemas import (
     ChatRequest,
     ChatResponse,
     DocumentRead,
+    DocumentRelationCreate,
+    DocumentRelationRead,
     MessageRead,
     SpaceCreate,
     SpaceRead,
     UploadResult,
 )
-from rag_app.db.models import Conversation, Document, DocumentStatus, KnowledgeSpace, Message
+from rag_app.db.models import (
+    Conversation,
+    Document,
+    DocumentRelation,
+    DocumentRelationStatus,
+    DocumentRelationType,
+    DocumentStatus,
+    KnowledgeSpace,
+    Message,
+)
 from rag_app.db.session import database_is_ready
 from rag_app.ingestion.extractors import SUPPORTED_EXTENSIONS
 from rag_app.ingestion.visual import page_image_path
@@ -118,6 +129,101 @@ def list_documents(space_id: uuid.UUID, session: SessionDependency) -> list[Docu
     )
 
 
+def _relation_read(session: Session, relation: DocumentRelation) -> DocumentRelationRead:
+    source = session.get(Document, relation.source_document_id)
+    target = session.get(Document, relation.target_document_id)
+    if source is None or target is None:
+        raise HTTPException(status_code=409, detail="Связь ссылается на удалённый документ")
+    return DocumentRelationRead(
+        id=relation.id,
+        space_id=relation.space_id,
+        source_document_id=relation.source_document_id,
+        source_filename=source.filename,
+        target_document_id=relation.target_document_id,
+        target_filename=target.filename,
+        relation_type=DocumentRelationType(relation.relation_type),
+        status=DocumentRelationStatus(relation.status),
+        evidence=relation.evidence,
+        created_by=relation.created_by,
+        created_at=relation.created_at,
+    )
+
+
+@router.get("/spaces/{space_id}/relations", response_model=list[DocumentRelationRead])
+def list_document_relations(
+    space_id: uuid.UUID, session: SessionDependency
+) -> list[DocumentRelationRead]:
+    if session.get(KnowledgeSpace, space_id) is None:
+        raise HTTPException(status_code=404, detail="Пространство знаний не найдено")
+    relations = list(
+        session.scalars(
+            select(DocumentRelation)
+            .where(DocumentRelation.space_id == space_id)
+            .order_by(DocumentRelation.created_at, DocumentRelation.id)
+        )
+    )
+    return [_relation_read(session, relation) for relation in relations]
+
+
+@router.post(
+    "/spaces/{space_id}/relations",
+    response_model=DocumentRelationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_document_relation(
+    space_id: uuid.UUID,
+    payload: DocumentRelationCreate,
+    session: SessionDependency,
+) -> DocumentRelationRead:
+    if session.get(KnowledgeSpace, space_id) is None:
+        raise HTTPException(status_code=404, detail="Пространство знаний не найдено")
+    source = session.get(Document, payload.source_document_id)
+    target = session.get(Document, payload.target_document_id)
+    if (
+        source is None
+        or target is None
+        or source.space_id != space_id
+        or target.space_id != space_id
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Связывать можно только документы выбранного пространства",
+        )
+    if source.status != DocumentStatus.READY or target.status != DocumentStatus.READY:
+        raise HTTPException(status_code=409, detail="Оба документа должны иметь статус «Готов»")
+    duplicate = session.scalar(
+        select(DocumentRelation.id).where(
+            DocumentRelation.source_document_id == source.id,
+            DocumentRelation.target_document_id == target.id,
+            DocumentRelation.relation_type == payload.relation_type,
+        )
+    )
+    if duplicate is not None:
+        raise HTTPException(status_code=409, detail="Такая связь уже существует")
+    relation = DocumentRelation(
+        space_id=space_id,
+        source_document_id=source.id,
+        target_document_id=target.id,
+        relation_type=payload.relation_type,
+        status=DocumentRelationStatus.CONFIRMED,
+        evidence=payload.evidence,
+        created_by="user",
+    )
+    session.add(relation)
+    session.commit()
+    session.refresh(relation)
+    return _relation_read(session, relation)
+
+
+@router.delete("/relations/{relation_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_document_relation(relation_id: uuid.UUID, session: SessionDependency) -> None:
+    relation = session.get(DocumentRelation, relation_id)
+    if relation is None:
+        raise HTTPException(status_code=404, detail="Связь не найдена")
+    session.delete(relation)
+    session.commit()
+
+
 @router.post(
     "/spaces/{space_id}/documents",
     response_model=UploadResult,
@@ -197,6 +303,14 @@ def delete_document(
         raise HTTPException(status_code=404, detail="Документ не найден")
     path = Path(document.storage_path)
     storage_parent = path.parent.resolve()
+    session.execute(
+        delete(DocumentRelation).where(
+            or_(
+                DocumentRelation.source_document_id == document_id,
+                DocumentRelation.target_document_id == document_id,
+            )
+        )
+    )
     session.execute(delete(Document).where(Document.id == document_id))
     session.commit()
     root = request.app.state.settings.data_dir.resolve()

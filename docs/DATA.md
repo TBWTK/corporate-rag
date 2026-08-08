@@ -2,7 +2,7 @@
 title: Данные
 type: data
 status: active
-updated: 2026-08-04
+updated: 2026-08-08
 ---
 
 # Данные
@@ -13,13 +13,19 @@ updated: 2026-08-04
 | --- | --- | --- | --- |
 | Knowledge space | граница связанного контекста | владелец знаний | UUID |
 | Document | версия загруженного файла и статус | загрузивший пользователь | UUID + SHA-256 |
+| Document relation | направленная типизированная связь и evidence | владелец знаний | UUID |
 | Chunk | текстовый фрагмент или visual-шаг, location и vector(1024) | система ingestion | UUID + chunk index |
 | Conversation | история вопросов в одном space | пользователь | UUID |
 | Message | текст ответа и снимок источников | пользователь/система | UUID |
 
 ## Lifecycle и версии
 
-Файл проверяется, получает SHA-256 и сохраняется в volume. Одинаковый hash нельзя повторно загрузить в одно пространство, но можно — в другое. Worker переводит `queued → processing → ready|error`; зависший `processing` повторно доступен через 15 минут. Удаление документа каскадно удаляет chunks и файл. История диалогов хранится до удаления пространства или БД.
+Файл проверяется, получает SHA-256 и сохраняется в volume. Одинаковый hash нельзя повторно загрузить
+в одно пространство, но можно — в другое. Worker переводит `queued → processing → ready|error`;
+зависший `processing` повторно доступен через 15 минут. Связать можно только два `ready`-документа
+одного пространства. Пользовательская связь сразу получает `confirmed`; `suggested` зарезервирован
+для будущих предложений и не участвует в retrieval. Удаление документа каскадно удаляет chunks,
+relations и файл. История диалогов хранится до удаления пространства или БД.
 
 ## Provenance и чувствительность
 
@@ -64,7 +70,10 @@ flowchart LR
   Render --> Chunk
   Chunk --> Embed["GigaChat Embeddings-2"]
   Embed --> Index[("pgvector + FTS")]
-  Index --> Answer["Answer + source snapshot"]
+  Index --> Seeds["Hybrid top-k seeds"]
+  Relations[("Confirmed document relations")] --> Expand["One-hop bounded expansion"]
+  Seeds --> Expand
+  Expand --> Answer["Answer + source snapshot + graph provenance"]
 ```
 
 ## Восстановление

@@ -23,9 +23,15 @@ Target Python 3.12, four-space indentation, type annotations, and a 100-characte
 
 Name tests `test_<behavior>.py` and follow red-green-refactor. Cover success, empty input, corrupt formats, provider failure, and space isolation. Ordinary tests must never call paid endpoints; use `FakeProvider` or HTTP transports. Mark Docker-backed tests `integration` and token-consuming checks `live`. The coverage gate is 80% branch coverage.
 
-## Commit & Pull Request Guidelines
+## Commit, Push & Pull Request Guidelines
 
 Use concise imperative Conventional Commits, matching `chore: initialize repository`; examples include `feat: add document retry` and `test: cover tenant boundary`. Pull requests must describe motivation, changed behavior, verification commands, issue links, and screenshots for UI changes. Never commit a failing default test suite.
+
+The repository owner authorizes Codex to maintain Git and push cohesive verified changes directly to
+`main`. Before every push, fetch `origin/main`, reject divergence instead of force-pushing, run the
+relevant tests plus `make lint`, update durable documentation, and keep the worktree free of unrelated
+or generated artifacts. Use a PR when review, an experimental branch, or external coordination is
+actually useful; direct-to-main does not relax verification, secret scanning, or documentation gates.
 
 ## Security & Configuration
 

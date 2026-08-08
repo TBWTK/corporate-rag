@@ -8,6 +8,7 @@ from typing import Any
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -30,6 +31,20 @@ class DocumentStatus(StrEnum):
     PROCESSING = "processing"
     READY = "ready"
     ERROR = "error"
+
+
+class DocumentRelationType(StrEnum):
+    SUPPLEMENTS = "supplements"
+    AMENDS = "amends"
+    SUPERSEDES = "supersedes"
+    IMPLEMENTS = "implements"
+    REFERENCES = "references"
+    ATTACHMENT_TO = "attachment_to"
+
+
+class DocumentRelationStatus(StrEnum):
+    SUGGESTED = "suggested"
+    CONFIRMED = "confirmed"
 
 
 class KnowledgeSpace(Base):
@@ -76,6 +91,54 @@ class Document(Base):
     space: Mapped[KnowledgeSpace] = relationship(back_populates="documents")
     chunks: Mapped[list[Chunk]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+class DocumentRelation(Base):
+    __tablename__ = "document_relations"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_document_id",
+            "target_document_id",
+            "relation_type",
+            name="uq_document_relations_direction_type",
+        ),
+        CheckConstraint(
+            "source_document_id <> target_document_id",
+            name="ck_document_relations_not_self",
+        ),
+        CheckConstraint(
+            "relation_type IN ('supplements', 'amends', 'supersedes', "
+            "'implements', 'references', 'attachment_to')",
+            name="ck_document_relations_type",
+        ),
+        CheckConstraint(
+            "status IN ('suggested', 'confirmed')",
+            name="ck_document_relations_status",
+        ),
+        Index("ix_document_relations_space_status", "space_id", "status"),
+        Index("ix_document_relations_source_status", "source_document_id", "status"),
+        Index("ix_document_relations_target_status", "target_document_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    space_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("knowledge_spaces.id", ondelete="CASCADE"), nullable=False
+    )
+    source_document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    target_document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    relation_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), default=DocumentRelationStatus.SUGGESTED, nullable=False
+    )
+    evidence: Mapped[str] = mapped_column(String(1000), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(40), default="user", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

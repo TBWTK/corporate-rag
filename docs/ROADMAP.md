@@ -18,5 +18,6 @@ updated: 2026-08-08
 | Extended demo | 20 связанных файлов и уточняющий диалог работают end-to-end | corpus audit + two-turn Docker chat + docs | done |
 | Visual instructions | PDF/DOCX-скриншоты превращаются в шаги и превью источников | 7 файлов, 44 страницы, offline tests и browser QA | done |
 | Visual answer UX | Неоднозначный запрос уточняется, ответ остаётся пошаговым, источники компактны | live Outlook/iOS flow + cited-page grouping + browser QA | done |
+| Document relations | Подтверждённые типизированные связи безопасно расширяют hybrid retrieval | API/UI + one-hop limits + PostgreSQL/browser QA | done |
 
 Допустимые статусы: `planned`, `active`, `blocked`, `done`.

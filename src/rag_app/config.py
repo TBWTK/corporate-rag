@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     chunk_overlap_chars: int = Field(default=160, ge=0, le=2000)
     retrieval_top_k: int = Field(default=6, ge=1, le=20)
     retrieval_candidates: int = Field(default=18, ge=4, le=100)
+    relation_max_documents: int = Field(default=3, ge=0, le=10)
+    relation_chunks_per_document: int = Field(default=2, ge=1, le=6)
     generation_max_tokens: int = Field(default=1200, ge=128, le=4096)
     vision_ingestion_enabled: bool = True
     vision_max_output_tokens: int = Field(default=2400, ge=256, le=8192)

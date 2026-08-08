@@ -12,9 +12,10 @@ updated: 2026-08-08
 Один локальный web-клиент обращается к FastAPI. API хранит метаданные и диалоги в PostgreSQL, а
 файлы и изображения страниц — в Docker volume. Worker извлекает обычный текст; PDF/DOCX со
 встроенными изображениями дополнительно рендерит постранично, разбирает через GigaChat Vision и
-вызывает GigaChat Embeddings. На вопрос API выполняет hybrid retrieval, уточняет визуальный сценарий
-при нескольких подходящих инструкциях, разворачивает выбранную последовательность шагов и вызывает
-GigaChat 2 Pro. Источники ответа строятся отдельно: только из процитированных уникальных страниц.
+вызывает GigaChat Embeddings. На вопрос API выполняет hybrid retrieval, уточняет визуальный сценарий,
+а затем ограниченно расширяет контекст по подтверждённым связям документов и вызывает GigaChat 2
+Pro. Источники ответа строятся отдельно: только из процитированных chunks/страниц, с graph
+provenance для фрагментов, добавленных через связь.
 
 ```mermaid
 flowchart LR
@@ -33,6 +34,8 @@ flowchart LR
 ## Инварианты
 
 - Поиск никогда не пересекает границу `space_id`.
+- Только `confirmed`-связи между двумя `ready`-документами одного space расширяют retrieval.
+- Graph expansion выполняет один переход, не удаляет hybrid seeds и ограничен тремя соседями.
 - Ответ получает только извлечённые фрагменты; контекст считается недоверенным.
 - Каждый пользовательский факт должен иметь цитату `[N]`; при нехватке данных модель сообщает об этом.
 - Если выбор правила зависит от отсутствующего атрибута, модель задаёт один вопрос с 2–5 вариантами, а не предполагает ответ.
@@ -47,7 +50,7 @@ flowchart LR
 | Web UI | пространства, upload, polling, чат, источники | показывает безопасное сообщение API |
 | API | валидация, метаданные, retrieval, generation | 4xx для входа, 502 для провайдера |
 | Worker | claim, extract, render, vision, chunk, embed, status | документ получает `error`, доступен retry |
-| PostgreSQL | очередь, версии, HNSW, FTS, диалоги | health становится degraded |
+| PostgreSQL | очередь, relations, HNSW, FTS, диалоги | health становится degraded |
 | GigaChat adapter | OAuth, embeddings, chat, image upload/analyze/delete | секреты редактируются, ошибка не маскируется |
 
 ## Путь пользователя
@@ -111,6 +114,8 @@ sequenceDiagram
     U->>A: выбранный вариант + same conversation_id
   end
   A->>D: последовательные visual-шаги найденных документов (до 40 chunks)
+  A->>D: confirmed relations от seed-документов (one hop, до 3 соседей)
+  A->>D: до 2 релевантных chunks каждого соседа
   A->>G: guarded prompt + numbered sources
   G-->>A: JSON answer или clarification
   alt достаточно данных
@@ -133,4 +138,5 @@ Upload отвечает после записи файла, не после embe
 ## Значимые решения
 
 - [ADR-001: Embeddings-2 и vector(1024)](decisions/ADR-001-embedding-and-vector-schema.md).
+- [ADR-002: подтверждённые связи документов](decisions/ADR-002-confirmed-document-relations.md).
 - Внешний LangChain не используется: явные адаптеры уменьшают скрытую связанность и упрощают eval.

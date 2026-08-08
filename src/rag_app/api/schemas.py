@@ -4,7 +4,9 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from rag_app.db.models import DocumentRelationStatus, DocumentRelationType
 
 
 class SpaceCreate(BaseModel):
@@ -39,6 +41,41 @@ class DocumentRead(BaseModel):
 class UploadResult(BaseModel):
     documents: list[DocumentRead]
     duplicates: list[DocumentRead]
+
+
+class DocumentRelationCreate(BaseModel):
+    source_document_id: uuid.UUID
+    target_document_id: uuid.UUID
+    relation_type: DocumentRelationType
+    evidence: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("evidence")
+    @classmethod
+    def normalize_evidence(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Укажите основание связи")
+        return normalized
+
+    @model_validator(mode="after")
+    def reject_self_link(self) -> DocumentRelationCreate:
+        if self.source_document_id == self.target_document_id:
+            raise ValueError("Документ нельзя связать с самим собой")
+        return self
+
+
+class DocumentRelationRead(BaseModel):
+    id: uuid.UUID
+    space_id: uuid.UUID
+    source_document_id: uuid.UUID
+    source_filename: str
+    target_document_id: uuid.UUID
+    target_filename: str
+    relation_type: DocumentRelationType
+    status: DocumentRelationStatus
+    evidence: str
+    created_by: str
+    created_at: datetime
 
 
 class ChatRequest(BaseModel):

@@ -9,6 +9,7 @@ class SourceContext:
     filename: str
     location: str
     text: str
+    relation: str | None = None
 
 
 SYSTEM_PROMPT = """Ты — ассистент по корпоративным документам.
@@ -47,10 +48,14 @@ def build_grounded_messages(
     if not clean_question:
         raise ValueError("Вопрос не должен быть пустым")
 
-    context = "\n\n".join(
-        f"[{source.number}] Файл: {source.filename}; место: {source.location}\n{source.text}"
-        for source in sources
-    )
+    context_blocks: list[str] = []
+    for source in sources:
+        relation = f"; подтверждённая связь: {source.relation}" if source.relation else ""
+        context_blocks.append(
+            f"[{source.number}] Файл: {source.filename}; место: {source.location}{relation}\n"
+            f"{source.text}"
+        )
+    context = "\n\n".join(context_blocks)
     user_content = (
         f"КОНТЕКСТ ИЗ ДОКУМЕНТОВ:\n{context or '(релевантный контекст не найден)'}\n\n"
         f"ВОПРОС ПОЛЬЗОВАТЕЛЯ:\n{clean_question}"

@@ -5,12 +5,16 @@ import unicodedata
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from rag_app.db.models import Chunk, Document, DocumentStatus
 from rag_app.retrieval.fusion import reciprocal_rank_fusion
+
+if TYPE_CHECKING:
+    from rag_app.retrieval.relations import RelationProvenance
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +26,7 @@ class RetrievedChunk:
     content: str
     score: float
     storage_path: str | None = None
+    relation: RelationProvenance | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,6 +15,7 @@ from rag_app.generation.prompting import SourceContext, build_grounded_messages
 from rag_app.generation.response import ResponseType, parse_model_response
 from rag_app.ingestion.visual import page_image_path, page_number_from_location
 from rag_app.providers.base import ModelProvider
+from rag_app.retrieval.relations import expand_related_context
 from rag_app.retrieval.search import (
     RetrievedChunk,
     expand_visual_context,
@@ -121,6 +122,14 @@ class ChatService:
                 list(selection.chunks),
                 max_chunks=self.settings.visual_context_max_chunks,
             )
+            retrieved = expand_related_context(
+                session,
+                space_id=space_id,
+                query_vector=query_vector,
+                retrieved=retrieved,
+                max_documents=self.settings.relation_max_documents,
+                chunks_per_document=self.settings.relation_chunks_per_document,
+            )
 
         contexts = [
             SourceContext(
@@ -128,6 +137,7 @@ class ChatService:
                 filename=item.filename,
                 location=item.location,
                 text=item.content,
+                relation=item.relation.description if item.relation else None,
             )
             for index, item in enumerate(retrieved, start=1)
         ]
@@ -182,6 +192,9 @@ class ChatService:
                 image_path = page_image_path(Path(item.storage_path), page_number)
                 if image_path.is_file():
                     source["image_url"] = f"/api/documents/{item.document_id}/pages/{page_number}"
+            relation = next((chunk.relation for chunk in group.items if chunk.relation), None)
+            if relation is not None:
+                source["relation"] = relation.as_dict()
             sources.append(source)
         return sources
 

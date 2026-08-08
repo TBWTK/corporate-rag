@@ -3,6 +3,7 @@ const state = {
   spaces: [],
   currentSpace: null,
   documents: [],
+  relations: [],
   conversationId: null,
   polling: null,
   busy: false,
@@ -55,6 +56,14 @@ function renderSpaces() {
 }
 
 const statusLabels = { queued: "В очереди", processing: "Индексируется", ready: "Готов", error: "Ошибка" };
+const relationTypeLabels = {
+  supplements: "дополняет",
+  amends: "изменяет",
+  supersedes: "заменяет",
+  implements: "реализует требования",
+  references: "ссылается на",
+  attachment_to: "является приложением к",
+};
 
 function renderDocuments() {
   const list = el("document-list");
@@ -79,6 +88,15 @@ function renderDocuments() {
     item.querySelector(".status-dot").classList.add(doc.status);
     item.querySelector(".status-label").textContent = statusLabels[doc.status] || doc.status;
     item.querySelector(".chunk-count").textContent = doc.chunk_count ? `· ${doc.chunk_count} фрагм.` : "";
+    const relationCount = state.relations.filter((relation) => (
+      relation.source_document_id === doc.id || relation.target_document_id === doc.id
+    )).length;
+    if (relationCount) {
+      const relationMeta = document.createElement("span");
+      relationMeta.className = "document-relation-count";
+      relationMeta.textContent = `· ${relationCount} связ.`;
+      item.querySelector(".document-meta").append(relationMeta);
+    }
     if (doc.error) item.title = doc.error;
     const actions = item.querySelector(".document-actions");
     if (doc.status === "error") {
@@ -96,6 +114,75 @@ function renderDocuments() {
     list.append(item);
   });
   updateComposer();
+  renderRelationManager();
+}
+
+function fillDocumentSelect(select, documents, selectedValue) {
+  select.replaceChildren();
+  documents.forEach((doc) => {
+    const option = document.createElement("option");
+    option.value = doc.id;
+    option.textContent = doc.filename;
+    select.append(option);
+  });
+  if (documents.some((doc) => doc.id === selectedValue)) select.value = selectedValue;
+}
+
+function syncRelationTarget() {
+  const sourceId = el("relation-source").value;
+  const target = el("relation-target");
+  [...target.options].forEach((option) => { option.disabled = option.value === sourceId; });
+  if (target.value === sourceId) {
+    const next = [...target.options].find((option) => !option.disabled);
+    target.value = next?.value || "";
+  }
+}
+
+function renderRelationManager() {
+  const readyDocuments = state.documents.filter((doc) => doc.status === "ready");
+  el("relation-count").textContent = state.relations.length;
+  el("relations-button").disabled = readyDocuments.length < 2;
+  const list = el("relation-list");
+  list.replaceChildren();
+  if (!state.relations.length) {
+    const empty = document.createElement("div");
+    empty.className = "relation-empty";
+    empty.textContent = "Подтверждённых связей пока нет.";
+    list.append(empty);
+  }
+  state.relations.forEach((relation) => {
+    const item = document.createElement("article");
+    item.className = "relation-item";
+    const flow = document.createElement("div");
+    flow.className = "relation-flow";
+    const source = document.createElement("strong");
+    source.textContent = relation.source_filename;
+    const type = document.createElement("span");
+    type.textContent = relationTypeLabels[relation.relation_type] || relation.relation_type;
+    const target = document.createElement("strong");
+    target.textContent = relation.target_filename;
+    flow.append(source, type, target);
+    const evidence = document.createElement("p");
+    evidence.textContent = relation.evidence;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "relation-remove";
+    remove.textContent = "×";
+    remove.title = "Удалить связь";
+    remove.setAttribute("aria-label", `Удалить связь ${relation.source_filename} — ${relation.target_filename}`);
+    remove.addEventListener("click", () => deleteRelation(relation));
+    item.append(flow, evidence, remove);
+    list.append(item);
+  });
+
+  const sourceSelect = el("relation-source");
+  const targetSelect = el("relation-target");
+  const previousSource = sourceSelect.value;
+  const previousTarget = targetSelect.value;
+  fillDocumentSelect(sourceSelect, readyDocuments, previousSource);
+  fillDocumentSelect(targetSelect, readyDocuments, previousTarget);
+  syncRelationTarget();
+  el("create-relation-submit").disabled = readyDocuments.length < 2;
 }
 
 function updateComposer() {
@@ -124,7 +211,9 @@ async function selectSpace(id) {
   el("drop-zone").classList.remove("disabled");
   renderSpaces();
   el("sidebar").classList.remove("open");
+  state.relations = [];
   await loadDocuments();
+  await loadRelations();
 }
 
 async function loadDocuments() {
@@ -134,6 +223,12 @@ async function loadDocuments() {
   const pending = state.documents.some((doc) => ["queued", "processing"].includes(doc.status));
   clearTimeout(state.polling);
   if (pending) state.polling = setTimeout(loadDocuments, 1800);
+}
+
+async function loadRelations() {
+  if (!state.currentSpace) return;
+  state.relations = await api(`/api/spaces/${state.currentSpace.id}/relations`);
+  renderDocuments();
 }
 
 async function uploadFiles(files) {
@@ -170,8 +265,48 @@ async function retryDocument(id) {
 
 async function deleteDocument(id, name) {
   if (!confirm(`Удалить «${name}» из пространства?`)) return;
-  try { await api(`/api/documents/${id}`, { method: "DELETE" }); await loadDocuments(); await loadSpacesOnly(); }
+  try {
+    await api(`/api/documents/${id}`, { method: "DELETE" });
+    await loadDocuments();
+    await loadRelations();
+    await loadSpacesOnly();
+  }
   catch (error) { toast(error.message, "error"); }
+}
+
+async function createRelation(event) {
+  event.preventDefault();
+  if (!state.currentSpace) return;
+  const sourceId = el("relation-source").value;
+  const targetId = el("relation-target").value;
+  if (!sourceId || !targetId || sourceId === targetId) {
+    toast("Выберите два разных готовых документа", "error");
+    return;
+  }
+  try {
+    await api(`/api/spaces/${state.currentSpace.id}/relations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_document_id: sourceId,
+        target_document_id: targetId,
+        relation_type: el("relation-type").value,
+        evidence: el("relation-evidence").value.trim(),
+      }),
+    });
+    el("relation-evidence").value = "";
+    await loadRelations();
+    toast("Связь подтверждена");
+  } catch (error) { toast(error.message, "error"); }
+}
+
+async function deleteRelation(relation) {
+  if (!confirm(`Удалить связь «${relation.source_filename} → ${relation.target_filename}»?`)) return;
+  try {
+    await api(`/api/relations/${relation.id}`, { method: "DELETE" });
+    await loadRelations();
+    toast("Связь удалена");
+  } catch (error) { toast(error.message, "error"); }
 }
 
 function clearMessages() {
@@ -217,6 +352,19 @@ function createSourceCard(source, initiallyHidden) {
   const excerpt = document.createElement("p");
   excerpt.className = "source-excerpt";
   excerpt.textContent = source.excerpt;
+  if (source.relation) {
+    const provenance = document.createElement("div");
+    provenance.className = "source-relation";
+    const provenanceTitle = document.createElement("strong");
+    provenanceTitle.textContent = "Добавлен по подтверждённой связи";
+    const provenanceFlow = document.createElement("span");
+    const relationLabel = relationTypeLabels[source.relation.type] || source.relation.type;
+    provenanceFlow.textContent = `${source.relation.source_filename} ${relationLabel} ${source.relation.target_filename}`;
+    const provenanceEvidence = document.createElement("small");
+    provenanceEvidence.textContent = `Основание: ${source.relation.evidence}`;
+    provenance.append(provenanceTitle, provenanceFlow, provenanceEvidence);
+    body.append(provenance);
+  }
   body.append(excerpt);
 
   if (source.image_url) {
@@ -383,6 +531,13 @@ async function checkHealth() {
 function bindEvents() {
   el("new-space-button").addEventListener("click", () => el("space-dialog").showModal());
   el("space-form").addEventListener("submit", createSpace);
+  el("relations-button").addEventListener("click", () => {
+    renderRelationManager();
+    el("relation-dialog").showModal();
+  });
+  el("close-relation-dialog").addEventListener("click", () => el("relation-dialog").close());
+  el("relation-form").addEventListener("submit", createRelation);
+  el("relation-source").addEventListener("change", syncRelationTarget);
   el("upload-button").addEventListener("click", () => el("file-input").click());
   el("file-input").addEventListener("change", (event) => uploadFiles(event.target.files));
   el("drop-zone").addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) el("file-input").click(); });
