@@ -5,6 +5,7 @@ import io
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 class UnsupportedDocumentError(ValueError):
@@ -22,9 +23,16 @@ class ExtractedUnit:
 
 
 @dataclass(frozen=True, slots=True)
+class DocumentLink:
+    label: str
+    target: str
+
+
+@dataclass(frozen=True, slots=True)
 class ExtractedDocument:
     title: str
     units: tuple[ExtractedUnit, ...]
+    links: tuple[DocumentLink, ...] = ()
 
 
 def _decode(payload: bytes) -> str:
@@ -76,6 +84,59 @@ def _docx(path: Path) -> list[ExtractedUnit]:
         tables.append(ExtractedUnit("\n".join(rows), f"таблица {table_number}"))
     units = [ExtractedUnit(paragraphs, "текст")] if paragraphs else []
     return [*units, *tables]
+
+
+def _docx_links(path: Path) -> tuple[DocumentLink, ...]:
+    from docx import Document
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+    from docx.oxml.ns import qn
+
+    document = Document(str(path))
+    links: list[DocumentLink] = []
+    seen_targets: set[str] = set()
+    for hyperlink in document.element.body.iter(qn("w:hyperlink")):
+        relation_id = hyperlink.get(qn("r:id"))
+        if not relation_id:
+            continue
+        relation = document.part.rels.get(relation_id)
+        if relation is None or relation.reltype != RT.HYPERLINK or not relation.is_external:
+            continue
+        target = str(relation.target_ref).strip()
+        if target in seen_targets or not _safe_external_target(target):
+            continue
+        label = " ".join(
+            text.strip()
+            for node in hyperlink.iter(qn("w:t"))
+            if (text := node.text) and text.strip()
+        )
+        links.append(DocumentLink(label=(label or target)[:200], target=target))
+        seen_targets.add(target)
+        if len(links) >= 50:
+            break
+    return tuple(links)
+
+
+def _safe_external_target(target: str) -> bool:
+    if not target or len(target) > 4096 or any(ord(character) < 32 for character in target):
+        return False
+    try:
+        parsed = urlsplit(target)
+    except ValueError:
+        return False
+    scheme = parsed.scheme.casefold()
+    if scheme in {"http", "https"}:
+        return bool(parsed.netloc)
+    if scheme == "mailto":
+        return bool(parsed.path and "@" in parsed.path)
+    return False
+
+
+def _link_unit(links: tuple[DocumentLink, ...]) -> ExtractedUnit:
+    entries = "\n".join(f"- {link.label}: {link.target}" for link in links)
+    return ExtractedUnit(
+        f"Внешние ссылки из документа (точные адреса):\n{entries}",
+        "внешние ссылки",
+    )
 
 
 def _xlsx(path: Path) -> list[ExtractedUnit]:
@@ -140,7 +201,10 @@ def extract_document(path: Path) -> ExtractedDocument:
     extractor = EXTRACTORS.get(suffix)
     if extractor is None:
         raise UnsupportedDocumentError(f"Формат {suffix or '<без расширения>'} не поддерживается")
+    links = _docx_links(path) if suffix == ".docx" else ()
     units = tuple(unit for unit in extractor(path) if unit.text.strip())
+    if links:
+        units = (*units, _link_unit(links))
     if not units:
         raise EmptyDocumentError(f"В документе {path.name} нет извлекаемого текста")
-    return ExtractedDocument(title=path.name, units=units)
+    return ExtractedDocument(title=path.name, units=units, links=links)

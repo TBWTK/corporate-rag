@@ -2,11 +2,27 @@ from pathlib import Path
 
 import pytest
 from docx import Document
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from openpyxl import Workbook
 from pptx import Presentation
 from reportlab.pdfgen import canvas
 
-from rag_app.ingestion.extractors import EmptyDocumentError, extract_document
+from rag_app.ingestion.extractors import DocumentLink, EmptyDocumentError, extract_document
+
+
+def _add_hyperlink(paragraph: object, label: str, target: str) -> None:
+    part = paragraph.part  # type: ignore[attr-defined]
+    relation_id = part.relate_to(target, RT.HYPERLINK, is_external=True)
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), relation_id)
+    run = OxmlElement("w:r")
+    text = OxmlElement("w:t")
+    text.text = label
+    run.append(text)
+    hyperlink.append(run)
+    paragraph._p.append(hyperlink)  # type: ignore[attr-defined]
 
 
 def test_extract_docx_with_paragraph_and_table(tmp_path: Path) -> None:
@@ -22,6 +38,28 @@ def test_extract_docx_with_paragraph_and_table(tmp_path: Path) -> None:
 
     assert [unit.location for unit in result.units] == ["текст", "таблица 1"]
     assert "Лимит | 2 дня" in result.units[1].text
+
+
+def test_extract_docx_preserves_safe_external_hyperlinks(tmp_path: Path) -> None:
+    path = tmp_path / "vpn.docx"
+    document = Document()
+    paragraph = document.add_paragraph("Скачайте архив: ")
+    _add_hyperlink(paragraph, "VPN Client.zip", "https://downloads.example/vpn.zip")
+    _add_hyperlink(paragraph, "Дубликат", "https://downloads.example/vpn.zip")
+    _add_hyperlink(paragraph, "Поддержка", "mailto:helpdesk@example.com")
+    _add_hyperlink(paragraph, "Опасная ссылка", "javascript:alert(1)")
+    document.save(path)
+
+    result = extract_document(path)
+
+    assert result.links == (
+        DocumentLink(label="VPN Client.zip", target="https://downloads.example/vpn.zip"),
+        DocumentLink(label="Поддержка", target="mailto:helpdesk@example.com"),
+    )
+    link_unit = next(unit for unit in result.units if unit.location == "внешние ссылки")
+    assert "VPN Client.zip: https://downloads.example/vpn.zip" in link_unit.text
+    assert "Поддержка: mailto:helpdesk@example.com" in link_unit.text
+    assert "javascript:" not in link_unit.text
 
 
 def test_extract_xlsx_preserves_sheet_location(tmp_path: Path) -> None:

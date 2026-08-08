@@ -2,7 +2,7 @@
 title: Модель угроз
 type: security
 status: active
-updated: 2026-08-04
+updated: 2026-08-08
 ---
 
 # Модель угроз
@@ -23,7 +23,7 @@ updated: 2026-08-04
 | Утечка изображения страницы | приватный endpoint по UUID; fixed page path; remote PNG удаляется после vision | нет per-user ACL, политика удаления GigaChat внешняя |
 | DoS через visual ingestion | один worker, 25 МБ, максимум 100 страниц, render timeout и advisory lock | стоимость до одной vision-операции на страницу |
 | Межконтекстная утечка | каждый SQL retrieval фильтруется по `space_id` | нет per-user ACL |
-| XSS из ответа | UI пишет модельный текст через `textContent` | внешние ссылки намеренно не рендерятся |
+| XSS из ответа | UI строит DOM сам; только валидные `http`/`https` URL становятся `<a>` с `noopener noreferrer`, остальной модельный текст остаётся text node | пользователь может перейти на вредоносную ссылку из загруженного документа |
 | DoS/расход токенов | один worker, batch limit, advisory lock | нет пользовательской квоты |
 
 ## Условия безопасного развёртывания

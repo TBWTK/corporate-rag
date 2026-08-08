@@ -12,10 +12,16 @@ from sqlalchemy.orm import Session, sessionmaker
 from rag_app.api.routes import router
 from rag_app.config import Settings
 from rag_app.db.models import Document
+from rag_app.generation.response import ModelResponse
 from rag_app.providers.base import Completion, ProviderError
 from rag_app.providers.fake import FakeProvider
 from rag_app.retrieval.search import RetrievedChunk
-from rag_app.services.chat import _cited_source_groups
+from rag_app.services.chat import (
+    _cited_source_groups,
+    _ensure_document_urls,
+    _ensure_windows_beginner_structure,
+    _instruction_repair_is_usable,
+)
 from rag_app.services.ingestion import IngestionWorker
 
 
@@ -276,11 +282,21 @@ def test_visual_chat_clarifies_scenario_before_generation(
 
         def generate(self, messages: list[dict[str, str]]) -> Completion:
             self.generation_count += 1
+            answer = (
+                "Откройте Outlook и добавьте учётную запись [1]."
+                if self.generation_count == 1
+                else (
+                    "Перед началом\nПодготовьте приложение [1].\n\n"
+                    "Сделайте по шагам\n1. Откройте Outlook [1].\n\n"
+                    "Как проверить\nУчётная запись добавлена [1].\n\n"
+                    "Если не получилось\nВ документе нет канала помощи."
+                )
+            )
             return Completion(
                 text=json.dumps(
                     {
                         "response_type": "answer",
-                        "answer": "Откройте Outlook и добавьте учётную запись [1].",
+                        "answer": answer,
                     },
                     ensure_ascii=False,
                 ),
@@ -350,7 +366,9 @@ def test_visual_chat_clarifies_scenario_before_generation(
     assert [source["filename"] for source in answer["sources"]] == [
         "Настройка почты мобильные устройства Outlook.pdf"
     ]
-    assert provider.generation_count == 1
+    assert "Перед началом" in answer["answer"]
+    assert "Как проверить" in answer["answer"]
+    assert provider.generation_count == 2
 
 
 def test_cited_source_groups_merge_steps_on_the_same_page() -> None:
@@ -398,6 +416,87 @@ def test_cited_source_groups_merge_steps_on_the_same_page() -> None:
     assert groups[0].items == (page_one_step_one, page_one_step_two)
     assert groups[1].citation_numbers == (3,)
     assert groups[1].items == (page_two,)
+
+
+def test_instruction_answer_gets_exact_document_url_when_model_omits_it() -> None:
+    document_id = uuid.uuid4()
+    retrieved = [
+        RetrievedChunk(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            filename="vpn.docx",
+            location="текст",
+            content="Скачайте VPN Client.zip",
+            score=0.05,
+        ),
+        RetrievedChunk(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            filename="vpn.docx",
+            location="внешние ссылки",
+            content=(
+                "Внешние ссылки из документа (точные адреса):\n"
+                "- VPN Client.zip: https://downloads.example/vpn.zip\n"
+                "- Поддержка: mailto:helpdesk@example.com"
+            ),
+            score=0.05,
+        ),
+    ]
+
+    answer = _ensure_document_urls("Скачайте VPN Client.zip [1].", retrieved)
+
+    assert answer.startswith("Ссылки из документа")
+    assert "VPN Client.zip: https://downloads.example/vpn.zip [2]" in answer
+    assert "mailto:" not in answer
+    assert _ensure_document_urls(answer, retrieved) == answer
+
+    existing = _ensure_document_urls(
+        "Ссылка: https://downloads.example/vpn.zip.",
+        retrieved,
+    )
+    assert "https://downloads.example/vpn.zip [2]." in existing
+
+
+def test_instruction_repair_rejects_serialized_markup_without_citations() -> None:
+    malformed = ModelResponse(
+        response_type="answer",
+        text=(
+            '{"response_type":"answer","answer":"\\u003ch2\\u003eПеред началом '
+            "Сделайте по шагам Как проверить Если не получилось"
+            '"}'
+        ),
+        options=[],
+    )
+
+    assert _instruction_repair_is_usable(malformed) is False
+
+
+def test_windows_instruction_gets_deterministic_beginner_fallback() -> None:
+    document_id = uuid.uuid4()
+    retrieved = [
+        RetrievedChunk(
+            id=uuid.uuid4(),
+            document_id=document_id,
+            filename="vpn.docx",
+            location="текст",
+            content=(
+                "Распакуйте VPN-Setup.zip и запустите Installer.exe. После нажатия OK "
+                "появится сообщение об успешном подключении. Пишите help@example.com"
+            ),
+            score=0.05,
+        )
+    ]
+
+    answer = _ensure_windows_beginner_structure("Установите программу [1].", retrieved)
+
+    assert answer.startswith("Перед началом")
+    assert "«Загрузки»" in answer
+    assert "«Извлечь всё»" in answer
+    assert "дважды щёлкните Installer.exe" in answer
+    assert "Сделайте по шагам" in answer
+    assert "Как проверить" in answer
+    assert "Если не получилось" in answer
+    assert "help@example.com [1]" in answer
 
 
 def test_chat_errors_are_mapped(api_app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:

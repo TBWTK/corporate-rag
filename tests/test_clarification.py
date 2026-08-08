@@ -30,6 +30,27 @@ def test_parse_structured_answer_and_plain_text_fallback() -> None:
     assert fallback.text == "Обычный ответ провайдера [1]."
 
 
+def test_parse_double_encoded_structured_answer() -> None:
+    raw = (
+        '"{\\"response_type\\":\\"answer\\",'
+        '\\"answer\\":\\"Полная инструкция [1].\\"}"'
+    )
+
+    result = parse_model_response(raw)
+
+    assert result.response_type == "answer"
+    assert result.text == "Полная инструкция [1]."
+
+
+def test_parse_structured_answer_with_literal_newline_from_provider() -> None:
+    raw = '{"response_type":"answer","answer":"Шаг 1 [1].\nШаг 2 [2]."}'
+
+    result = parse_model_response(raw)
+
+    assert result.response_type == "answer"
+    assert result.text == "Шаг 1 [1].\nШаг 2 [2]."
+
+
 def test_invalid_clarification_falls_back_without_fake_options() -> None:
     raw = '{"response_type":"clarification","question":"Уточните отдел","options":["Один"]}'
 

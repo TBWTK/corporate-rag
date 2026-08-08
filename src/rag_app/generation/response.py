@@ -18,9 +18,14 @@ def parse_model_response(raw: str) -> ModelResponse:
     clean = raw.strip()
     json_text = _strip_code_fence(clean)
     try:
-        payload = json.loads(json_text)
+        payload = json.loads(json_text, strict=False)
     except (json.JSONDecodeError, TypeError):
         return ModelResponse(response_type="answer", text=clean, options=[])
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(_strip_code_fence(payload.strip()), strict=False)
+        except (json.JSONDecodeError, TypeError):
+            return ModelResponse(response_type="answer", text=clean, options=[])
     if not isinstance(payload, dict):
         return ModelResponse(response_type="answer", text=clean, options=[])
 

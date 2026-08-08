@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from rag_app.db.models import Chunk, Document, DocumentStatus
@@ -240,7 +240,17 @@ def expand_visual_context(
             .where(
                 Chunk.document_id == document_id,
                 Document.status == DocumentStatus.READY,
-                Chunk.location.like("стр. % · %"),
+                or_(
+                    Chunk.location.like("стр. % · %"),
+                    Chunk.location == "внешние ссылки",
+                    and_(
+                        Document.filename.ilike("%.docx"),
+                        or_(
+                            Chunk.location == "текст",
+                            Chunk.location.like("таблица %"),
+                        ),
+                    ),
+                ),
             )
             .order_by(Chunk.chunk_index)
             .limit(per_document)

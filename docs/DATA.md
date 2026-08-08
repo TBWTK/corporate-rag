@@ -36,6 +36,12 @@ relations и файл. История диалогов хранится до у�
 PostgreSQL нельзя публиковать или копировать без политики владельца. GigaChat является внешней
 границей обработки данных: PNG загружается только на время анализа и затем удаляется через API.
 
+Для DOCX внешний hyperlink сохраняется отдельным chunk с location `внешние ссылки` в виде
+`подпись: точный target`. Разрешены схемы `http`, `https` и `mailto`, targets валидируются,
+дедуплицируются и ограничиваются первыми 50 ссылками. JavaScript, file и другие схемы отбрасываются.
+Visual retrieval сохраняет этот chunk и исходный `текст` Word рядом с описаниями страниц: URL,
+последние шаги, критерий успеха и контакты не теряются при постраничной обработке.
+
 ## Демо-корпус
 
 `examples/acme-corp/` содержит 50 взаимосвязанных файлов во всех поддерживаемых форматах:
@@ -64,7 +70,8 @@ flowchart LR
   File["Корпоративный файл"] --> Validate["allowlist · size · SHA-256"]
   Validate --> Raw[("Encrypted host / Docker volume")]
   Raw --> Extract["Extractor by format"]
-  Extract --> Visual{"PDF/DOCX с изображениями?"}
+  Extract --> Links["DOCX relationships → exact links"]
+  Links --> Visual{"PDF/DOCX с изображениями?"}
   Visual -->|да| Render["Page PNG → GigaChat Vision → steps"]
   Visual -->|нет| Chunk["Text chunks + location"]
   Render --> Chunk

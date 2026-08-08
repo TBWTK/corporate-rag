@@ -74,8 +74,30 @@ def test_hybrid_search_handles_empty_results() -> None:
 
 def test_expand_visual_context_preserves_instruction_order() -> None:
     document_id = uuid.uuid4()
-    first_id, second_id, other_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    native_id, link_id, first_id, second_id, other_id = (
+        uuid.uuid4(),
+        uuid.uuid4(),
+        uuid.uuid4(),
+        uuid.uuid4(),
+        uuid.uuid4(),
+    )
     visual_rows = [
+        SimpleNamespace(
+            id=native_id,
+            document_id=document_id,
+            filename="guide.pdf",
+            location="текст",
+            content="После ввода данных нажмите OK; появится сообщение об успешном подключении",
+            storage_path="/data/guide.pdf",
+        ),
+        SimpleNamespace(
+            id=link_id,
+            document_id=document_id,
+            filename="guide.pdf",
+            location="внешние ссылки",
+            content="Installer: https://downloads.example/installer.zip",
+            storage_path="/data/guide.pdf",
+        ),
         SimpleNamespace(
             id=first_id,
             document_id=document_id,
@@ -117,7 +139,13 @@ def test_expand_visual_context_preserves_instruction_order() -> None:
         max_chunks=6,
     )
 
-    assert [item.id for item in expanded] == [first_id, second_id, other_id]
+    assert [item.id for item in expanded] == [
+        native_id,
+        link_id,
+        first_id,
+        second_id,
+        other_id,
+    ]
 
 
 def test_select_visual_context_requests_choice_for_ambiguous_instructions() -> None:

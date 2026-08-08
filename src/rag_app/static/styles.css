@@ -137,6 +137,8 @@ button:disabled { opacity: .46; cursor: not-allowed; }
 .user .bubble { background: #203a31; color: white; border-bottom-right-radius: 4px; }
 .assistant .bubble { border: 1px solid #e5e6e0; background: white; border-bottom-left-radius: 4px; }
 .assistant .bubble.loading { color: var(--muted); }
+.answer-link { color: var(--brand-dark); font-weight: 700; overflow-wrap: anywhere; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.answer-link:hover { color: var(--brand); }
 .typing { display: inline-flex; gap: 4px; }
 .typing i { width: 5px; height: 5px; border-radius: 50%; background: #819087; animation: bounce 1s infinite; }
 .typing i:nth-child(2) { animation-delay: .12s; }

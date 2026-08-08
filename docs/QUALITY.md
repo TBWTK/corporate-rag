@@ -24,6 +24,7 @@ updated: 2026-08-08
 | Какой график у L2 поддержки? | 2/2, 08:00–20:00; до 2 удалённых дневных смен | support agreement + XLSX |
 | Кто согласует CRM? → «Я из продаж» | руководитель + Sales Operations, 2 рабочих дня | access guide + systems CSV |
 | Что изучает новый инженер? | общие тренинги, наставник, GitLab, первая задача | onboarding HTML/MD + XLSX |
+| Как настроить VPN VMware VPN Client? | точный URL, скачивание, распаковка, установка, вход и проверка | VPN DOCX: links + text + pages |
 
 Успех: ответ содержит правильный факт, хотя бы одну корректную цитату и не добавляет неподтверждённое правило. Нерелевантный вопрос должен вернуть формулировку о недостаточности данных.
 
@@ -33,7 +34,7 @@ updated: 2026-08-08
 - [x] Extractor tests: PDF, DOCX, XLSX, PPTX, HTML.
 - [x] API integration: spaces, upload, statuses, chat, duplicate, delete.
 - [x] DB integration: pgvector DDL, ingestion и hybrid ranking.
-- [x] Coverage не ниже 80% ветвей: 84,83% (`61 passed`, `2 skipped`).
+- [x] Coverage не ниже 80% ветвей: 85,24% (`67 passed`, `2 skipped`).
 - [x] Ruff и strict mypy.
 - [x] Browser QA desktop и mobile 390×844, console чистая.
 - [x] Live smoke отдельно от CI: один synthetic embedding и короткий вопрос.
@@ -52,6 +53,10 @@ updated: 2026-08-08
   validation, cascade delete, one-hop limits, suggested exclusion и source provenance покрыты офлайн.
 - [x] PostgreSQL graph integration: confirmed API relation расширяет seed реальными pgvector chunks;
   отдельная тестовая БД создаётся и удаляется без изменения демо-данных.
+- [x] Beginner instruction contract: DOCX URL extraction, unsafe-scheme filtering, visual/native
+  context merge, malformed JSON recovery, quality repair и deterministic fallback покрыты офлайн.
+- [x] Live VPN browser flow: точный SharePoint URL кликабелен, четыре обязательных блока видимы,
+  шесть источников включают страницы 1–4; page preview загружен, console errors отсутствуют.
 
 ## Результаты расширенного демо
 
@@ -71,6 +76,9 @@ updated: 2026-08-08
   загружаются до раскрытия карточки.
 - Browser relation flow: диалог показывает направление, тип и evidence; создание и удаление
   подтверждённой связи отражаются в счётчике и списке, временная проверочная связь удалена.
+- Live VPN flow: переиндексированный DOCX содержит 12 chunks, включая exact links и native text;
+  ответ доводит пользователя от открытия URL и `Извлечь всё` до `Installer.exe`, Login и проверки
+  успешного подключения.
 
 ## Verification commands
 

@@ -24,6 +24,12 @@ def test_prompt_requires_grounding_and_numbered_citations() -> None:
     assert "приложения или платформы" in prompt.lower()
     assert "больше пяти" in prompt.lower()
     assert "нумерованные шаги" in prompt.lower()
+    assert "перед началом" in prompt.lower()
+    assert "как проверить" in prompt.lower()
+    assert "если не получилось" in prompt.lower()
+    assert "не подменяй url" in prompt.lower()
+    assert "точный url" in prompt.lower()
+    assert "до последнего предоставленного шага" in prompt.lower()
 
 
 def test_prompt_rejects_empty_question() -> None:

@@ -9,8 +9,36 @@ const state = {
   busy: false,
 };
 const INITIAL_SOURCE_LIMIT = 3;
+const EXTERNAL_URL_PATTERN = /https?:\/\/[^\s<>"']+/gi;
 
 const el = (id) => document.getElementById(id);
+
+function appendLinkifiedText(container, text) {
+  let cursor = 0;
+  for (const match of text.matchAll(EXTERNAL_URL_PATTERN)) {
+    const start = match.index;
+    const raw = match[0];
+    let visible = raw;
+    let trailing = "";
+    while (/[.,;!\])}]$/.test(visible)) {
+      trailing = visible.slice(-1) + trailing;
+      visible = visible.slice(0, -1);
+    }
+    let url;
+    try { url = new URL(visible); } catch { continue; }
+    if (!(url.protocol === "https:" || url.protocol === "http:")) continue;
+    container.append(document.createTextNode(text.slice(cursor, start)));
+    const link = document.createElement("a");
+    link.className = "answer-link";
+    link.href = url.href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = visible;
+    container.append(link, document.createTextNode(trailing));
+    cursor = start + raw.length;
+  }
+  container.append(document.createTextNode(text.slice(cursor)));
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
@@ -351,7 +379,7 @@ function createSourceCard(source, initiallyHidden) {
   body.className = "source-card-body";
   const excerpt = document.createElement("p");
   excerpt.className = "source-excerpt";
-  excerpt.textContent = source.excerpt;
+  appendLinkifiedText(excerpt, source.excerpt);
   if (source.relation) {
     const provenance = document.createElement("div");
     provenance.className = "source-relation";
@@ -443,7 +471,7 @@ function appendMessage(role, text, sources = [], loading = false, options = []) 
   const bubble = document.createElement("div");
   bubble.className = `bubble ${loading ? "loading" : ""}`;
   if (loading) bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
-  else bubble.textContent = text;
+  else appendLinkifiedText(bubble, text);
   wrapper.append(label, bubble);
   if (sources.length) appendSources(wrapper, sources);
   if (options.length) {

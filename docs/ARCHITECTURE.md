@@ -37,7 +37,11 @@ flowchart LR
 - Только `confirmed`-связи между двумя `ready`-документами одного space расширяют retrieval.
 - Graph expansion выполняет один переход, не удаляет hybrid seeds и ограничен тремя соседями.
 - Ответ получает только извлечённые фрагменты; контекст считается недоверенным.
+- DOCX-гиперссылки извлекаются из OOXML relationships; разрешены только `http`, `https` и
+  `mailto`, а UI делает кликабельными только проверенные `http`/`https` URL.
 - Каждый пользовательский факт должен иметь цитату `[N]`; при нехватке данных модель сообщает об этом.
+- Визуальная инструкция должна содержать «Перед началом», атомарные шаги, «Как проверить» и
+  «Если не получилось»; критический URL нельзя заменять ссылкой на citation `[N]`.
 - Если выбор правила зависит от отсутствующего атрибута, модель задаёт один вопрос с 2–5 вариантами, а не предполагает ответ.
 - `.env`, ключи и access token не сохраняются в БД и не возвращаются API.
 - Индекс создаётся одной моделью `Embeddings-2` размерности 1024.
@@ -83,6 +87,7 @@ sequenceDiagram
   A-->>U: 202 Accepted
   W->>D: SELECT ... FOR UPDATE SKIP LOCKED
   W->>W: extract
+  W->>W: DOCX hyperlink relationships → exact link chunk
   opt PDF/DOCX содержит изображения
     W->>W: render страниц → PNG
     W->>G: upload PNG → vision JSON → delete remote file
@@ -113,11 +118,13 @@ sequenceDiagram
     A-->>U: выбрать приложение/платформу
     U->>A: выбранный вариант + same conversation_id
   end
-  A->>D: последовательные visual-шаги найденных документов (до 40 chunks)
+  A->>D: visual-шаги + native DOCX text + exact links (до 40 chunks)
   A->>D: confirmed relations от seed-документов (one hop, до 3 соседей)
   A->>D: до 2 релевантных chunks каждого соседа
   A->>G: guarded prompt + numbered sources
   G-->>A: JSON answer или clarification
+  A->>A: instruction quality gate + one grounded repair
+  A->>A: deterministic URL/citation and beginner-structure guarantees
   alt достаточно данных
     A->>A: процитированные chunks → уникальные страницы
     A->>D: question + answer + compact source metadata

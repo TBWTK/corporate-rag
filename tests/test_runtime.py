@@ -100,4 +100,9 @@ def test_create_app_serves_ui_and_openapi_without_starting_runtime(tmp_path: Pat
     assert "Контекст" in index.text
     assert "/static/app.js?v=" in index.text
     assert "/static/styles.css?v=" in index.text
+    app_js = client.get("/static/app.js")
+    assert app_js.status_code == 200
+    assert "appendLinkifiedText" in app_js.text
+    assert 'protocol === "https:"' in app_js.text
+    assert "bubble.textContent = text" not in app_js.text
     assert client.get("/api/openapi.json").status_code == 200
