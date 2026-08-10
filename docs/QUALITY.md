@@ -2,7 +2,7 @@
 title: Качество
 type: quality
 status: active
-updated: 2026-08-08
+updated: 2026-08-10
 ---
 
 # Качество
@@ -57,6 +57,8 @@ updated: 2026-08-08
   context merge, malformed JSON recovery, quality repair и deterministic fallback покрыты офлайн.
 - [x] Live VPN browser flow: точный SharePoint URL кликабелен, четыре обязательных блока видимы,
   шесть источников включают страницы 1–4; page preview загружен, console errors отсутствуют.
+- [x] Inline visual tutorial: один визуальный файл автоматически показывает процитированные
+  страницы по порядку; несколько файлов дают локальный выбор; desktop/mobile browser QA чистый.
 
 ## Результаты расширенного демо
 
@@ -79,6 +81,9 @@ updated: 2026-08-08
 - Live VPN flow: переиндексированный DOCX содержит 12 chunks, включая exact links и native text;
   ответ доводит пользователя от открытия URL и `Извлечь всё` до `Installer.exe`, Login и проверки
   успешного подключения.
+- Inline visual flow: VPN-ответ автоматически показал страницы 1–4 (PNG 1191×1684); comparative
+  Outlook/iOS flow предложил два файла и после выбора оставил одну страницу выбранного руководства.
+  Desktop и 390×844 без horizontal overflow, console warnings/errors отсутствуют.
 
 ## Verification commands
 

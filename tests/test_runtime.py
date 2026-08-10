@@ -105,4 +105,13 @@ def test_create_app_serves_ui_and_openapi_without_starting_runtime(tmp_path: Pat
     assert "appendLinkifiedText" in app_js.text
     assert 'protocol === "https:"' in app_js.text
     assert "bubble.textContent = text" not in app_js.text
+    assert "collectVisualTutorials" in app_js.text
+    assert "source.document_id || source.filename" in app_js.text
+    assert "tutorials.length === 1" in app_js.text
+    assert "Выберите визуальную инструкцию" in app_js.text
+    assert 'button.setAttribute("aria-pressed", "false")' in app_js.text
+    styles = client.get("/static/styles.css")
+    assert styles.status_code == 200
+    assert ".visual-tutorial" in styles.text
+    assert ".visual-page-image" in styles.text
     assert client.get("/api/openapi.json").status_code == 200

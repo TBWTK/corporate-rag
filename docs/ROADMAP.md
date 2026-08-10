@@ -2,7 +2,7 @@
 title: Этапы проекта
 type: roadmap
 status: complete
-updated: 2026-08-08
+updated: 2026-08-10
 ---
 
 # Этапы проекта
@@ -20,5 +20,6 @@ updated: 2026-08-08
 | Visual answer UX | Неоднозначный запрос уточняется, ответ остаётся пошаговым, источники компактны | live Outlook/iOS flow + cited-page grouping + browser QA | done |
 | Document relations | Подтверждённые типизированные связи безопасно расширяют hybrid retrieval | API/UI + one-hop limits + PostgreSQL/browser QA | done |
 | Beginner instructions | DOCX-ссылки и visual-шаги дают новичку полный проверяемый сценарий | exact URL + four-section answer + source-page browser QA | done |
+| Inline visual tutorial | Процитированные страницы видны прямо под ответом без смешивания файлов | one-file auto gallery + multi-file choice + desktop/mobile QA | done |
 
 Допустимые статусы: `planned`, `active`, `blocked`, `done`.

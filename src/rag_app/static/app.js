@@ -356,6 +356,129 @@ function sourceCitationLabel(source) {
   return numbers.map((number) => `[${number}]`).join(" ");
 }
 
+function isSafeSourceImageUrl(value) {
+  if (typeof value !== "string" || !value) return false;
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.origin === window.location.origin
+      && url.pathname.startsWith("/api/documents/");
+  } catch {
+    return false;
+  }
+}
+
+function sourcePageNumber(source) {
+  const match = String(source.location || "").match(/(?:стр\.?|страница)\s*(\d+)/i);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function collectVisualTutorials(sources) {
+  const groups = new Map();
+  sources.forEach((source) => {
+    if (!isSafeSourceImageUrl(source.image_url)) return;
+    const key = source.document_id || source.filename;
+    if (!groups.has(key)) {
+      groups.set(key, { key, filename: source.filename, pages: new Map() });
+    }
+    groups.get(key).pages.set(source.image_url, source);
+  });
+  return Array.from(groups.values()).map((group) => ({
+    key: group.key,
+    filename: group.filename,
+    pages: Array.from(group.pages.values()).sort((left, right) => (
+      sourcePageNumber(left) - sourcePageNumber(right)
+    )),
+  }));
+}
+
+function createVisualPageCard(source, index, total) {
+  const card = document.createElement("figure");
+  card.className = "visual-page";
+  const caption = document.createElement("figcaption");
+  const step = document.createElement("strong");
+  step.textContent = `Иллюстрация ${index + 1} из ${total}`;
+  const location = document.createElement("span");
+  location.textContent = source.location;
+  caption.append(step, location);
+
+  const link = document.createElement("a");
+  link.className = "visual-page-link";
+  link.href = source.image_url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.title = `Открыть крупно: ${source.filename}, ${source.location}`;
+  const image = document.createElement("img");
+  image.className = "visual-page-image";
+  image.src = source.image_url;
+  image.loading = index === 0 ? "eager" : "lazy";
+  image.decoding = "async";
+  image.alt = `Шаги на странице: ${source.filename}, ${source.location}`;
+  const action = document.createElement("span");
+  action.textContent = "Открыть крупно ↗";
+  link.append(image, action);
+  card.append(caption, link);
+  return card;
+}
+
+function renderVisualTutorial(group, gallery, description) {
+  gallery.replaceChildren();
+  description.textContent = `Показываем «${group.filename}». Следуйте изображениям сверху вниз.`;
+  group.pages.forEach((source, index) => {
+    gallery.append(createVisualPageCard(source, index, group.pages.length));
+  });
+}
+
+function appendVisualTutorial(wrapper, sources) {
+  const tutorials = collectVisualTutorials(sources);
+  if (!tutorials.length) return;
+
+  const section = document.createElement("section");
+  section.className = "visual-tutorial";
+  const header = document.createElement("div");
+  header.className = "visual-tutorial-header";
+  const heading = document.createElement("strong");
+  heading.textContent = tutorials.length === 1
+    ? "Визуальный туториал"
+    : "Выберите визуальную инструкцию";
+  const count = document.createElement("span");
+  const pageCount = tutorials.reduce((total, tutorial) => total + tutorial.pages.length, 0);
+  count.textContent = `${pageCount} изобр.`;
+  header.append(heading, count);
+  const description = document.createElement("p");
+  description.className = "visual-tutorial-description";
+  const gallery = document.createElement("div");
+  gallery.className = "visual-gallery";
+  section.append(header, description);
+
+  if (tutorials.length === 1) {
+    renderVisualTutorial(tutorials[0], gallery, description);
+  } else {
+    description.textContent = "Ответ опирается на несколько файлов. Выберите туториал, чтобы не смешивать шаги.";
+    const choices = document.createElement("div");
+    choices.className = "visual-tutorial-choices";
+    tutorials.forEach((tutorial) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "visual-tutorial-choice";
+      button.textContent = tutorial.filename;
+      button.setAttribute("aria-pressed", "false");
+      button.addEventListener("click", () => {
+        choices.querySelectorAll("button").forEach((choice) => {
+          choice.classList.remove("active");
+          choice.setAttribute("aria-pressed", "false");
+        });
+        button.classList.add("active");
+        button.setAttribute("aria-pressed", "true");
+        renderVisualTutorial(tutorial, gallery, description);
+      });
+      choices.append(button);
+    });
+    section.append(choices);
+  }
+  section.append(gallery);
+  wrapper.append(section);
+}
+
 function createSourceCard(source, initiallyHidden) {
   const card = document.createElement("details");
   card.className = "source-card";
@@ -473,6 +596,7 @@ function appendMessage(role, text, sources = [], loading = false, options = []) 
   if (loading) bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
   else appendLinkifiedText(bubble, text);
   wrapper.append(label, bubble);
+  if (sources.length) appendVisualTutorial(wrapper, sources);
   if (sources.length) appendSources(wrapper, sources);
   if (options.length) {
     const optionList = document.createElement("div");
