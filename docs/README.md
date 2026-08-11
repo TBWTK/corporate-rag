@@ -3,7 +3,7 @@ title: Корпоративный RAG
 project: Корпоративный RAG
 type: project
 status: complete
-updated: 2026-08-08
+updated: 2026-08-11
 ---
 
 # Корпоративный RAG
@@ -14,11 +14,11 @@ updated: 2026-08-08
 
 - **Сотрудник** объединяет документы по теме и ищет правило, срок или лимит.
 - **Владелец знаний** обновляет набор файлов и проверяет ответы по источникам.
-- **Оператор** настраивает GigaChat, запускает Docker и контролирует статусы.
+- **Оператор** выбирает GigaChat или локальный Ollama, запускает Docker и контролирует статусы.
 
 ## Границы
 
-В релиз входят локальный web UI, Python API, worker, PostgreSQL/pgvector, GigaChat, восемь форматов
+В релиз входят локальный web UI, Python API, worker, PostgreSQL/pgvector, GigaChat/Ollama, восемь форматов
 файлов и vision-разбор PDF/DOCX-инструкций со скриншотами. Не входят отдельный OCR для
 низкокачественных/рукописных сканов, корпоративный SSO/RBAC и юридическая гарантия истинности
 ответа. До добавления контроля доступа приложение разворачивается только локально или в
@@ -31,9 +31,11 @@ updated: 2026-08-08
 - [Архитектура и flows](ARCHITECTURE.md)
 - [Глубокий аудит RAG](AUDIT.md)
 - [Руководство пользователя](USER_GUIDE.md)
+- [Локальный запуск на macOS и Windows](LOCAL_MODELS.md)
 - [Данные](DATA.md)
 - [Качество и evals](QUALITY.md)
 - [Модель угроз](SECURITY.md)
 - [Технический долг](DEBT.md)
 - [ADR: модель эмбеддингов и pgvector](decisions/ADR-001-embedding-and-vector-schema.md)
 - [ADR: подтверждённые связи документов](decisions/ADR-002-confirmed-document-relations.md)
+- [ADR: Ollama как локальный backend](decisions/ADR-003-ollama-local-provider.md)

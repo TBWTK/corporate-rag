@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     gigachat_ca_bundle_file: Path | None = Path("certs/russian_trusted_root_ca_pem.crt")
     gigachat_serialize_requests: bool = True
 
+    ollama_base_url: str = "http://host.docker.internal:11434"
+    ollama_vision_model: str = "qwen2.5vl:3b"
+    ollama_timeout_seconds: float = Field(default=600.0, ge=10, le=3600)
+    ollama_context_length: int = Field(default=16384, ge=2048, le=131072)
+    ollama_keep_alive: str = "5m"
+    ollama_json_mode: bool = True
+    ollama_think: bool = False
+    ollama_serialize_requests: bool = True
+
     generation_model: str = "GigaChat-2-Pro"
     embedding_model: str = "Embeddings-2"
     embedding_dimension: int = Field(default=1024, ge=8, le=4096)
@@ -66,11 +75,13 @@ class Settings(BaseSettings):
                 "chunk_max_chars должен быть <= 1400 для 512-токенного окна Embeddings-2"
             )
         if (
-            self.llm_provider.casefold() != "fake"
+            self.llm_provider.casefold() == "gigachat"
             and self.embedding_model in {"Embeddings", "Embeddings-2"}
             and self.embedding_dimension != 1024
         ):
             raise ValueError("embedding_dimension должен быть 1024 для Embeddings/Embeddings-2")
+        if self.llm_provider.casefold() == "ollama" and self.embedding_dimension != 1024:
+            raise ValueError("embedding_dimension должен быть 1024 для текущей pgvector-схемы")
         return self
 
     @property

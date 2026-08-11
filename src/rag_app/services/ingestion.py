@@ -259,7 +259,7 @@ class IngestionWorker:
             )
             page_units = parse_visual_page(completion.text, page_number=page.number)
             if not page_units:
-                raise ProviderError(f"GigaChat не извлёк содержимое страницы {page.number}")
+                raise ProviderError(f"Модель не извлекла содержимое страницы {page.number}")
             units.extend(page_units)
         return tuple(units)
 

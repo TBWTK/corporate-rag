@@ -2,7 +2,7 @@
 title: Архитектура
 type: architecture
 status: active
-updated: 2026-08-10
+updated: 2026-08-11
 ---
 
 # Архитектура
@@ -11,10 +11,11 @@ updated: 2026-08-10
 
 Один локальный web-клиент обращается к FastAPI. API хранит метаданные и диалоги в PostgreSQL, а
 файлы и изображения страниц — в Docker volume. Worker извлекает обычный текст; PDF/DOCX со
-встроенными изображениями дополнительно рендерит постранично, разбирает через GigaChat Vision и
-вызывает GigaChat Embeddings. На вопрос API выполняет hybrid retrieval, уточняет визуальный сценарий,
-а затем ограниченно расширяет контекст по подтверждённым связям документов и вызывает GigaChat 2
-Pro. Источники ответа строятся отдельно: только из процитированных chunks/страниц, с graph
+встроенными изображениями дополнительно рендерит постранично и передаёт выбранному provider.
+Provider может быть внешним GigaChat либо локальным Ollama для embeddings, chat и vision. На вопрос
+API выполняет hybrid retrieval, уточняет визуальный сценарий, а затем ограниченно расширяет контекст
+по подтверждённым связям документов и вызывает выбранную chat-модель. Источники ответа строятся
+отдельно: только из процитированных chunks/страниц, с graph
 provenance для фрагментов, добавленных через связь.
 
 ```mermaid
@@ -28,7 +29,9 @@ flowchart LR
   Worker --> Render["Poppler + LibreOffice"]
   API --> Lock["PostgreSQL advisory lock"]
   Worker --> Lock
-  Lock --> Giga["GigaChat API"]
+  Lock --> Provider{"Model provider"}
+  Provider --> Giga["GigaChat API"]
+  Provider --> Ollama["Ollama на host macOS/Windows"]
 ```
 
 ## Инварианты
@@ -46,8 +49,11 @@ flowchart LR
   показывается автоматически, несколько требуют явного локального выбора.
 - Если выбор правила зависит от отсутствующего атрибута, модель задаёт один вопрос с 2–5 вариантами, а не предполагает ответ.
 - `.env`, ключи и access token не сохраняются в БД и не возвращаются API.
-- Индекс создаётся одной моделью `Embeddings-2` размерности 1024.
-- Вызовы GigaChat сериализуются между процессами для лимита одного потока.
+- Индекс создаётся ровно одной embedding-моделью размерности 1024; после её смены все документы
+  переиндексируются.
+- Вызовы GigaChat и Ollama могут сериализоваться между процессами PostgreSQL advisory lock.
+- Локальный Ollama доступен контейнерам только по настроенному `OLLAMA_BASE_URL`; порт 11434 нельзя
+  публиковать в Интернет.
 
 ## Компоненты и границы
 
@@ -58,6 +64,7 @@ flowchart LR
 | Worker | claim, extract, render, vision, chunk, embed, status | документ получает `error`, доступен retry |
 | PostgreSQL | очередь, relations, HNSW, FTS, диалоги | health становится degraded |
 | GigaChat adapter | OAuth, embeddings, chat, image upload/analyze/delete | секреты редактируются, ошибка не маскируется |
+| Ollama adapter | local embeddings/chat, base64 vision, JSON mode, model diagnostics | безопасная ошибка подключения, модели или памяти |
 
 ## Путь пользователя
 
@@ -82,7 +89,7 @@ sequenceDiagram
   participant A as API
   participant D as PostgreSQL
   participant W as Worker
-  participant G as GigaChat Embeddings
+  participant M as Model provider
   U->>A: POST files
   A->>A: extension, size, SHA-256
   A->>D: document(status=queued)
@@ -92,12 +99,12 @@ sequenceDiagram
   W->>W: DOCX hyperlink relationships → exact link chunk
   opt PDF/DOCX содержит изображения
     W->>W: render страниц → PNG
-    W->>G: upload PNG → vision JSON → delete remote file
+    W->>M: PNG → vision JSON
     W->>W: JSON → упорядоченные шаги с номером страницы
   end
   W->>W: chunk ≤ 1100 chars
-  W->>G: batches of 8
-  G-->>W: vectors[1024]
+  W->>M: embedding batches
+  M-->>W: vectors[1024]
   W->>D: chunks + status=ready
   U->>A: polling documents
   A-->>U: ready
@@ -110,10 +117,10 @@ sequenceDiagram
   participant U as Web UI
   participant A as API
   participant D as PostgreSQL/pgvector
-  participant G as GigaChat 2 Pro
+  participant M as Model provider
   U->>A: question + space_id + conversation_id?
   A->>A: retrieval query = последние 2 сообщения + question
-  A->>G: embedding(retrieval query)
+  A->>M: embedding(retrieval query)
   A->>D: vector top-N + Russian FTS top-N
   A->>A: Reciprocal Rank Fusion → top-6
   opt найдено несколько visual-инструкций без явного приложения
@@ -123,8 +130,8 @@ sequenceDiagram
   A->>D: visual-шаги + native DOCX text + exact links (до 40 chunks)
   A->>D: confirmed relations от seed-документов (one hop, до 3 соседей)
   A->>D: до 2 релевантных chunks каждого соседа
-  A->>G: guarded prompt + numbered sources
-  G-->>A: JSON answer или clarification
+  A->>M: guarded prompt + numbered sources
+  M-->>A: JSON answer или clarification
   A->>A: instruction quality gate + one grounded repair
   A->>A: deterministic URL/citation and beginner-structure guarantees
   alt достаточно данных
@@ -148,10 +155,15 @@ sequenceDiagram
 
 ## Latency и capacity
 
-Upload отвечает после записи файла, не после embeddings. Индексация выполняется одним worker и ограничена внешним API. Chat включает query embedding, два SQL-поиска и generation; целевой бюджет для локального контура — до 30 секунд без формального SLO. HNSW рассчитан на 1024-мерные векторы; масштабная смена модели требует миграции.
+Upload отвечает после записи файла, не после embeddings. Индексация выполняется одним worker и
+ограничена внешним API либо мощностью локального устройства. Chat включает query embedding, два
+SQL-поиска и generation. Для GigaChat целевой бюджет — до 30 секунд без формального SLO; локальный
+CPU-контур может отвечать и разбирать страницы заметно дольше. HNSW рассчитан на 1024-мерные
+векторы; смена размерности требует миграции, смена embedding-модели — полного reindex.
 
 ## Значимые решения
 
 - [ADR-001: Embeddings-2 и vector(1024)](decisions/ADR-001-embedding-and-vector-schema.md).
 - [ADR-002: подтверждённые связи документов](decisions/ADR-002-confirmed-document-relations.md).
+- [ADR-003: Ollama как локальный backend](decisions/ADR-003-ollama-local-provider.md).
 - Внешний LangChain не используется: явные адаптеры уменьшают скрытую связанность и упрощают eval.

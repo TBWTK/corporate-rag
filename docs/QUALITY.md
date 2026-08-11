@@ -2,7 +2,7 @@
 title: Качество
 type: quality
 status: active
-updated: 2026-08-10
+updated: 2026-08-11
 ---
 
 # Качество
@@ -34,7 +34,7 @@ updated: 2026-08-10
 - [x] Extractor tests: PDF, DOCX, XLSX, PPTX, HTML.
 - [x] API integration: spaces, upload, statuses, chat, duplicate, delete.
 - [x] DB integration: pgvector DDL, ingestion и hybrid ranking.
-- [x] Coverage не ниже 80% ветвей: 85,24% (`67 passed`, `2 skipped`).
+- [x] Coverage не ниже 80% ветвей: 84,98% (`81 passed`, `2 skipped`).
 - [x] Ruff и strict mypy.
 - [x] Browser QA desktop и mobile 390×844, console чистая.
 - [x] Live smoke отдельно от CI: один synthetic embedding и короткий вопрос.
@@ -59,6 +59,8 @@ updated: 2026-08-10
   шесть источников включают страницы 1–4; page preview загружен, console errors отсутствуют.
 - [x] Inline visual tutorial: один визуальный файл автоматически показывает процитированные
   страницы по порядку; несколько файлов дают локальный выбор; desktop/mobile browser QA чистый.
+- [x] Ollama local contract: batch embed 1024, JSON chat, base64 vision, safe HTTP errors, factory
+  serialization, model preflight и macOS/Windows compose profile покрыты тестами и документацией.
 
 ## Результаты расширенного демо
 
@@ -84,6 +86,8 @@ updated: 2026-08-10
 - Inline visual flow: VPN-ответ автоматически показал страницы 1–4 (PNG 1191×1684); comparative
   Outlook/iOS flow предложил два файла и после выбора оставил одну страницу выбранного руководства.
   Desktop и 390×844 без horizontal overflow, console warnings/errors отсутствуют.
+- Ollama contract: 21 целевой тест и container-to-host stub smoke подтвердили model listing,
+  embed 1024 и JSON chat; отрицательный preflight вернул безопасную диагностику подключения.
 
 ## Verification commands
 
@@ -103,6 +107,8 @@ curl -fsS http://localhost:8000/api/health
 - Retrieval: 18 кандидатов на канал, top-6 после RRF.
 - Generation: `temperature=0.1`, максимум 1200 output tokens.
 - Никаких платных/live-вызовов в обычном pytest.
+- Реальный Ollama inference запускается оператором отдельно после многогигабайтного `ollama pull`;
+  CI проверяет HTTP contract без скачивания весов.
 - Visual instruction: до 100 страниц на документ, 144 DPI, render timeout 120 секунд;
   последовательный контекст ответа — до 40 chunks.
 - Ошибки не содержат credential или access token.

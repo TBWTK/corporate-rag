@@ -2,7 +2,7 @@
 title: Данные
 type: data
 status: active
-updated: 2026-08-08
+updated: 2026-08-11
 ---
 
 # Данные
@@ -33,8 +33,9 @@ relations и файл. История диалогов хранится до у�
 наличии. Рядом с исходным файлом worker хранит `pages/page-N.png`; каталог удаляется вместе с
 документом. Это позволяет проверить происхождение, даже если retrieval позднее изменится.
 Корпоративные файлы, изображения страниц и сообщения считаются конфиденциальными; volume и
-PostgreSQL нельзя публиковать или копировать без политики владельца. GigaChat является внешней
-границей обработки данных: PNG загружается только на время анализа и затем удаляется через API.
+PostgreSQL нельзя публиковать или копировать без политики владельца. В режиме GigaChat PNG
+пересекает внешнюю границу только на время анализа и затем удаляется через API. В режиме Ollama
+текст и PNG остаются на хосте заказчика; загрузка весов модели не содержит документы.
 
 Для DOCX внешний hyperlink сохраняется отдельным chunk с location `внешние ссылки` в виде
 `подпись: точный target`. Разрешены схемы `http`, `https` и `mailto`, targets валидируются,
@@ -72,10 +73,10 @@ flowchart LR
   Raw --> Extract["Extractor by format"]
   Extract --> Links["DOCX relationships → exact links"]
   Links --> Visual{"PDF/DOCX с изображениями?"}
-  Visual -->|да| Render["Page PNG → GigaChat Vision → steps"]
+  Visual -->|да| Render["Page PNG → provider Vision → steps"]
   Visual -->|нет| Chunk["Text chunks + location"]
   Render --> Chunk
-  Chunk --> Embed["GigaChat Embeddings-2"]
+  Chunk --> Embed["Configured embedding model · 1024"]
   Embed --> Index[("pgvector + FTS")]
   Index --> Seeds["Hybrid top-k seeds"]
   Relations[("Confirmed document relations")] --> Expand["One-hop bounded expansion"]
@@ -85,4 +86,7 @@ flowchart LR
 
 ## Восстановление
 
-Метаданные восстанавливаются из backup PostgreSQL, файлы — из backup volume. Векторы производны: при их потере документы можно переиндексировать из raw-файлов. Смена embedding-модели требует полного reindex, потому что сравнивать векторы разных моделей нельзя.
+Метаданные восстанавливаются из backup PostgreSQL, файлы — из backup volume. Векторы производны:
+при их потере документы можно переиндексировать из raw-файлов. Смена GigaChat/Ollama или конкретной
+embedding-модели требует полного reindex, потому что сравнивать векторы разных моделей нельзя даже
+при одинаковой размерности 1024.

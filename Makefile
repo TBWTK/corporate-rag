@@ -1,4 +1,4 @@
-.PHONY: setup run stop logs demo test lint format
+.PHONY: setup run stop logs demo local-check test lint format
 
 setup:
 	python3 -m venv .venv
@@ -17,6 +17,9 @@ logs:
 
 demo:
 	docker compose run --rm api python -m rag_app.seed
+
+local-check:
+	docker compose run --rm --no-deps api python -m rag_app.local_check
 
 test:
 	docker compose run --rm -e LLM_PROVIDER=fake api pytest --cov=rag_app --cov-report=term-missing

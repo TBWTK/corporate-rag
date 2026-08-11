@@ -17,7 +17,7 @@ services:
   api:
     build: .
     env_file:
-      - .env
+      - ${RAG_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+psycopg://rag:rag-local-only@db:5432/rag
       DATA_DIR: /data/uploads
@@ -42,7 +42,7 @@ services:
       start_period: 5s
       retries: 3
     env_file:
-      - .env
+      - ${RAG_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+psycopg://rag:rag-local-only@db:5432/rag
       DATA_DIR: /data/uploads
